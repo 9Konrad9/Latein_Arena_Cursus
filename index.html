@@ -180,6 +180,23 @@
             -webkit-tap-highlight-color: transparent;
         }
 
+        /* Gesperrt: Das Spiel braucht Grammatik, die der Wortschatz noch nicht abdeckt. */
+        .game-card.gesperrt {
+            opacity: 0.6;
+            border-style: dashed;
+            filter: grayscale(0.7);
+        }
+
+        .game-card.gesperrt:hover { transform: none; box-shadow: var(--schatten); }
+
+        .play-btn.gesperrt {
+            background: #9a9186;
+            color: #e8e2d6;
+            cursor: not-allowed;
+            pointer-events: none;
+            box-shadow: none;
+        }
+
         .play-btn:hover { filter: brightness(1.14); }
         .play-btn:active { transform: translateY(1px); }
 
@@ -468,9 +485,25 @@
             }
         }
 
+        // Spiele, deren Grammatik im Cursus später kommt, als der Wortschatz reicht.
+        // Die Zahl ist die Lektion der Einführung; sobald der Wortschatz dort angekommen
+        // ist, öffnet sich die Kachel von selbst.
+        const FREI_AB = { arcus: 9, pronomina: 15 };
+        const maxLektion = Math.max.apply(null, globalVocabularyPool.map(v => v.lesson));
+
         document.querySelectorAll('.game-card[data-game]').forEach(card => {
             const gameId = card.getAttribute('data-game');
             const badge = card.querySelector('.progress-badge');
+
+            if (FREI_AB[gameId] > maxLektion) {
+                card.classList.add('gesperrt');
+                const btn = card.querySelector('.play-btn');
+                btn.classList.add('gesperrt');
+                btn.removeAttribute('href');
+                btn.innerText = 'Ab Lektion ' + FREI_AB[gameId];
+                badge.innerText = 'Der Wortschatz reicht bis Lektion ' + maxLektion;
+                return;
+            }
 
             // Sonderfall: Pronomina! hat zwei getrennte Modi mit eigenen Scores
             if (gameId === 'pronomina') {
