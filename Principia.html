@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Prīncipia! - Die Münzprägerei</title>
+    <script src="vocabulary.js"></script>
+    <script src="progress.js"></script>
+    <script src="achievementToast.js"></script>
+    <script src="lessonFilter.js"></script>
+    <script src="verbEngine.js"></script>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--wand);
+            color: var(--ink);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 15px;
+        }
+
+        h1 {
+            color: var(--pompeji);
+            font-family: var(--font-display);
+            text-transform: uppercase;
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+            text-align: center;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 4px rgba(80, 60, 30, 0.22);
+        }
+
+        .subtitle { font-family: var(--font-display); font-style: italic; color: var(--ink-soft); margin-bottom: 15px; text-align: center; }
+
+        .game-container {
+            width: 100%;
+            max-width: 650px;
+            background: var(--putz);
+            border: 4px solid var(--bronze);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(80, 60, 30, 0.22);
+            position: relative;
+            min-height: 480px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .start-screen { text-align: center; padding: 10px; }
+
+        .notice-box { margin: 20px 0; }
+
+        .treasury-stat {
+            background: rgba(212, 175, 55, 0.08);
+            border: 1px dashed var(--gold);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 15px;
+            font-size: 0.95rem;
+            color: var(--ink);
+        }
+
+        /* --- Münzen der Schatzkammer ---
+           Geprägte Münzen als Bild statt als CSS-Farbverlauf. Sie tragen keinen
+           Text - das Wort steht als Label darunter -, deshalb dürfen sie voll
+           ausgestaltet sein. Das Metall folgt der Leitner-Stufe des Wortes.
+           Der Schatten kommt per drop-shadow, nicht per box-shadow: Er soll dem
+           Umriss der Münze folgen, und die zerbrochene ist kein Kreis mehr. */
+        .coin {
+            background-image: url('assets/ui/muenze-gold.png');
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+            filter: drop-shadow(0 2px 3px rgba(80, 60, 30, 0.3));
+        }
+        .coin.silver  { background-image: url('assets/ui/muenze-silber.png'); }
+        .coin.bronze  { background-image: url('assets/ui/muenze-bronze.png'); }
+        .coin.blank   { background-image: url('assets/ui/muenze-roh.png'); filter: none; opacity: 0.75; }
+        .coin.cracked { background-image: url('assets/ui/muenze-bruch.png'); }
+
+        .treasury-row {
+            display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
+            margin-bottom: 18px; min-height: 34px;
+        }
+        .treasury-row .coin { width: 28px; height: 28px; font-size: 0.7rem; }
+
+        .mint-card {
+            background: var(--putz);
+            color: #2a2a2a;
+            border-radius: 8px;
+            padding: 22px 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(80, 60, 30, 0.12);
+            text-align: center;
+        }
+        .type-badge {
+            display: inline-block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;
+            background-color: var(--pompeji); color: var(--marmor); padding: 3px 10px; border-radius: 12px;
+            margin-bottom: 10px;
+        }
+        .stamp-word {
+            font-family: var(--font-display); font-size: 2rem; font-weight: bold; color: var(--pompeji);
+        }
+        .stamp-hint { font-size: 0.9rem; color: var(--ink-soft); margin-top: 6px; }
+
+        .round-number { text-align: center; font-size: 0.9rem; color: var(--ink-soft); margin-bottom: 10px; letter-spacing: 1px; }
+
+        .options-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; flex-grow: 1;
+        }
+
+        /* --- Die vier Antwortmünzen ---
+           Ein Schrötling: Schmuck nur im Perlkreis am Rand, das Feld in der Mitte
+           bleibt glatt und leer - der Schüler prägt es durch seine Wahl. Genau
+           deshalb bleibt der Text lesbar.
+
+           Die 15 % Innenabstand sind am Bild gemessen: Das glatte Feld ist ein
+           Kreis mit 76 % des Durchmessers (Radius 121,5 px im 320-px-Bild). Ein
+           dreizeiliger Textblock passt darin bis rund 68 % der Knopfbreite.
+           Die Schriftgröße wächst mit dem Knopf mit, damit auch der längste
+           Stammformensatz (animadvertō, animadvertī, animadversum) auf schmalen
+           Schirmen im Feld bleibt. */
+        .coin-btn {
+            aspect-ratio: 1;
+            border-radius: 50%;
+            border: 3px solid transparent;
+            background-image: url('assets/ui/muenze-feld.png');
+            background-size: 100% 100%;
+            background-position: center;
+            background-repeat: no-repeat;
+            color: #3f2d10;   /* kontrast-ok: 8,2 auf dem glatten Feld der Münze #ebc883 */
+            font-family: var(--font-display); font-weight: bold;
+            font-size: clamp(0.68rem, 3.9vw, 1.05rem);
+            line-height: 1.2;
+            cursor: pointer;
+            filter: drop-shadow(0 3px 5px rgba(80, 60, 30, 0.28));
+            display: flex; align-items: center; justify-content: center; text-align: center;
+            padding: 15%; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+        }
+        .coin-btn:not(:disabled):hover { filter: drop-shadow(0 3px 5px rgba(80, 60, 30, 0.28)) brightness(1.06); }
+        .coin-btn:not(:disabled):active { filter: drop-shadow(0 1px 2px rgba(80, 60, 30, 0.28)) brightness(0.94); transform: translateY(2px); }
+
+        .feedback-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(244, 236, 219, 0.96); border-radius: 12px;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            padding: 25px; text-align: center; z-index: 10;
+        }
+        .feedback-title { font-family: var(--font-display); font-size: 1.8rem; margin-bottom: 15px; }
+        .feedback-explanation { font-size: 1.1rem; line-height: 1.55; margin-bottom: 25px; max-width: 500px; }
+
+
+        .correct { border-color: var(--richtig) !important; box-shadow: 0 0 0 3px var(--richtig) !important; }
+        .wrong { border-color: var(--falsch) !important; box-shadow: 0 0 0 3px var(--falsch) !important; }
+
+        .end-treasury-grid {
+            display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 15px 0 20px;
+        }
+        .end-treasury-grid .coin-wrap { text-align: center; width: 62px; }
+        .end-treasury-grid .coin { width: 44px; height: 44px; font-size: 0.85rem; margin: 0 auto; }
+        .end-treasury-grid .coin-label { font-size: 0.65rem; color: var(--ink-soft); margin-top: 3px; word-break: break-word; }
+        .end-treasury-grid .coin-label.fehl { color: var(--falsch); }
+        /* Emblem über der Überschrift, nach dem Vorbild der Trophäenseite:
+           ein Gegenstand, der zum Spiel gehört, statt eines Emojis. */
+        .emblem { display: block; height: 68px; margin: 0 auto 4px; }
+        @media (max-width: 520px) { .emblem { height: 52px; } }
+
+    </style>
+</head>
+<body>
+<a href="index.html" id="global-menu-btn" onclick="return confirm('Zurück zum Hauptmenü? Der aktuelle Fortschritt in dieser Runde geht verloren.');" title="Zurück zum Hauptmenü">🏠</a>
+
+    <!-- Reiner Zierrat: hinter dem Inhalt, ohne Klickfläche, auf schmalen Schirmen aus -->
+    <div class="saeule-links" aria-hidden="true"></div>
+    <div class="saeule-rechts" aria-hidden="true"></div>
+
+    <img class="emblem" src="assets/ui/wachstafel.png" alt="" aria-hidden="true">
+    <h1>Prīncipia!</h1>
+    <div class="subtitle">Die Münzprägerei</div>
+
+    <div class="trenner" style="max-width: 650px;" aria-hidden="true"></div>
+
+    <div class="game-container">
+
+        <!-- START -->
+        <div id="start-screen" class="start-screen">
+            <h2 style="font-family: var(--font-display); color: var(--ink);">Willkommen in der Prägewerkstatt!</h2>
+            <div class="notice-box">
+                <h3>📜 Der Auftrag:</h3>
+                <p>Du siehst die <strong>Grundform</strong> eines Wortes (Nominativ bei Nomen, Infinitiv bei Verben). Präge die passende <strong>mittlere Wörterbuch-Spalte</strong> dazu: bei Nomen den Genitiv + Geschlecht (z. B. <em>patris, m.</em>), bei Verben die 1. Person Singular (z. B. <em>videō</em>).</p>
+                <p style="margin-top: 10px;">Jede richtige Zuordnung prägt eine Münze für deine Schatzkammer. Falsche Prägungen zerbrechen und bleiben als Bruch in der Reihe stehen.</p>
+                <p style="margin-top: 10px; font-size: 0.9rem; color: var(--ink-soft);">🔴🟡🟢 Auch hier gilt der Vokabelkasten: Wörter, die noch nicht sitzen, kommen häufiger dran. Am Ende kannst du falsch geprägte Münzen direkt nochmal prägen.</p>
+            </div>
+            <div class="treasury-stat" id="overall-treasury">Lade Schatzkammer...</div>
+            <button class="start-btn" id="btn-start-game">Prägerei eröffnen!</button>
+        </div>
+
+        <!-- SPIELFELD -->
+        <div id="combat-box" style="display: none; flex-grow: 1; flex-direction: column;">
+            <div class="round-number" id="round-number">MÜNZE 1 VON 10</div>
+            <div class="treasury-row" id="treasury-row"></div>
+
+            <div class="mint-card">
+                <div class="type-badge" id="type-badge">NOMEN</div>
+                <div class="stamp-word" id="stamp-word">-</div>
+                <div class="stamp-hint" id="stamp-hint">Wie lautet die mittlere Spalte?</div>
+            </div>
+
+            <div class="options-grid">
+                <button class="coin-btn" id="opt0">-</button>
+                <button class="coin-btn" id="opt1">-</button>
+                <button class="coin-btn" id="opt2">-</button>
+                <button class="coin-btn" id="opt3">-</button>
+            </div>
+        </div>
+
+        <!-- FEEDBACK -->
+        <div class="feedback-overlay" id="feedback-box">
+            <div class="feedback-title" id="fb-title">Geprägt!</div>
+            <div class="feedback-explanation" id="fb-text">Erklärung...</div>
+            <button class="start-btn" style="font-size:1.1rem; padding:10px 30px;" id="btn-next-round">Weiter</button>
+        </div>
+
+        <!-- ENDE -->
+        <div id="end-box" style="display: none; text-align: center; padding: 20px 10px; margin: auto;">
+            <h2 id="end-title" style="font-size: 2.2rem; color: var(--pompeji); font-family: var(--font-display); margin-bottom: 15px;">SCHATZKAMMER GEFÜLLT!</h2>
+            <p id="end-msg" style="margin: 10px 0; font-size: 1.1rem; line-height: 1.6;"></p>
+            <div class="end-treasury-grid" id="end-treasury-grid"></div>
+            <p id="box-summary" style="margin: 5px 0 20px; font-size: 1rem; color: var(--ink-soft);"></p>
+            <button class="start-btn" style="font-size:1.1rem; padding:10px 25px; background: var(--falsch); color:#fff; display:none; margin-bottom: 12px;" id="btn-review">📚 Fehler wiederholen</button>
+            <br>
+            <button class="start-btn" style="font-size:1.1rem; padding:12px 30px;" id="btn-restart">Neue Prägerunde</button>
+            <br>
+            <a href="index.html" class="start-btn" style="text-decoration: none; display: inline-block; font-size:1rem; background: var(--wand-tief); color: var(--ink); margin-top: 15px;">Zurück zum Menü</a>
+        </div>
+    </div>
+
+    <script>
+        const totalRounds = 10;
+        let currentRoundIdx = 0;
+        let correctCount = 0;
+        let roundLocked = false;
+        let mintPool = [];
+        let activePool = [];
+        let currentTarget = null;
+        let currentCorrectAnswer = '';
+        let maxSelectedLesson = 0;
+
+        let sessionCoins = []; // { word, colorIdx } - für die Schatzkammer-Anzeige dieser Runde
+        let missedItems = [];  // für die Wiederholungsrunde
+        let isReviewMode = false;
+        let reviewQueue = [];
+        let reviewIdx = 0;
+        let reviewCorrectCount = 0;
+
+        function fullPoolNounsAndVerbs() {
+            return globalVocabularyPool.filter(v =>
+                (v.type === 'noun' || v.type === 'verb') &&
+                !v.latin.includes(' ') &&
+                !v.middle.includes('Pl.')
+            );
+        }
+
+        // Identische Konjugations-Engine wie im Formen-Kastell (für konsistente, garantiert korrekte Formen)
+        // Adapter: liefert dasselbe Format wie zuvor [1.Sg,2.Sg,3.Sg,1.Pl,2.Pl,3.Pl] Präsens,
+        // nutzt aber intern VerbEngine (deckt alle unregelmäßigen Verben korrekt ab).
+        // Deponentien nutzen die Passiv-Endungen (ihre einzige, aktiv bedeutende Form) -
+        // die alte lokale Funktion hätte sie fälschlich wie reguläre Aktiv-Verben behandelt.
+        function conjugateVerb(verbObj) {
+            if (!VerbEngine.isSupported(verbObj)) return [verbObj.middle, '', '', '', '', ''];
+            const genus = verbObj.gram_class === 'Deponens' ? 'Passiv' : 'Aktiv';
+            return VerbEngine.getFormsForTempus(verbObj, 'Präsens', genus);
+        }
+
+        function getVerbStem(item) {
+            return item.latin.slice(0, -3);
+        }
+        function classifyPerfectPattern(perfect) {
+            if (perfect.endsWith('vī')) return 'v';
+            if (perfect.endsWith('uī')) return 'u';
+            if (perfect.endsWith('sī') || perfect.endsWith('xī')) return 's';
+            return 'other';
+        }
+        function fakePerfect(pattern, stem) {
+            if (pattern === 'v') return stem + 'āvī';
+            if (pattern === 'u') return stem + 'uī';
+            return stem + 'sī';
+        }
+
+        // Verb-Distraktoren: bei noch unbekanntem Perfekt wie bisher (falsche Personalformen
+        // DESSELBEN Verbs). Sobald Perfekt/PPP bekannt sind, progressive Stammformen-Frage
+        // wie im Formen-Kastell/Circus Maximus/Gladiatoren-Duell.
+        function buildVerbDistractors(target) {
+            const forms = conjugateVerb(target); // [1.Sg, 2.Sg, 3.Sg, 1.Pl, 2.Pl, 3.Pl]
+            const otherForms = forms.slice(1); // alle außer der richtigen 1.Sg-Form
+            const shuffled = [...otherForms].sort(() => Math.random() - 0.5);
+            return shuffled.slice(0, 3);
+        }
+
+        function buildVerbRound(target) {
+            const perfectKnown = !!target.perfect && (target.perfectLesson || target.lesson) <= maxSelectedLesson;
+            const pppKnown = !!target.ppp && (target.pppLesson || target.lesson) <= maxSelectedLesson;
+
+            if (!perfectKnown) {
+                return {
+                    hint: 'Wie lautet die 1. Person Singular?',
+                    correct: target.middle,
+                    distractors: buildVerbDistractors(target)
+                };
+            }
+
+            const stem = getVerbStem(target);
+            const realPerfectPattern = classifyPerfectPattern(target.perfect);
+            const wrongPatterns = ['v', 'u', 's'].filter(p => p !== realPerfectPattern).slice(0, 2);
+            const fakePerfect1 = fakePerfect(wrongPatterns[0], stem);
+            const fakePerfect2 = fakePerfect(wrongPatterns[1], stem);
+
+            let stemForPresent = target.latin.replace(/āre|ēre|īre|ere/, "");
+            let fakePresentOptions;
+            if (target.gram_class.includes("a-Konjugation")) fakePresentOptions = [stemForPresent + "eō", stemForPresent + "iō"];
+            else if (target.gram_class.includes("e-Konjugation")) fakePresentOptions = [stemForPresent + "ō", stemForPresent + "iō"];
+            else if (target.gram_class.includes("i-Konjugation") || target.gram_class.includes("gemischte")) fakePresentOptions = [stemForPresent + "ō", stemForPresent + "eō"];
+            else fakePresentOptions = [stemForPresent + "eō", stemForPresent + "iō"];
+            const fakePresent = fakePresentOptions[Math.floor(Math.random() * fakePresentOptions.length)];
+
+            if (pppKnown) {
+                return {
+                    hint: 'Wie lauten die Stammformen?',
+                    correct: `${target.middle}, ${target.perfect}, ${target.ppp}`,
+                    distractors: [
+                        `${target.middle}, ${fakePerfect1}, ${target.ppp}`,
+                        `${target.middle}, ${fakePerfect2}, ${target.ppp}`,
+                        `${fakePresent}, ${target.perfect}, ${target.ppp}`
+                    ]
+                };
+            }
+            return {
+                hint: 'Wie lauten Präsens und Perfekt?',
+                correct: `${target.middle}, ${target.perfect}`,
+                distractors: [
+                    `${target.middle}, ${fakePerfect1}`,
+                    `${target.middle}, ${fakePerfect2}`,
+                    `${fakePresent}, ${target.perfect}`
+                ]
+            };
+        }
+
+        // Nomen: Genitiv-Endung je Deklinationsklasse
+        const nounGenEndings = { "o-Deklination": "ī", "a-Deklination": "ae", "konsonantische Deklination": "is" };
+        const allGenders = ["m", "f", "n"];
+
+        function parseNounMiddle(middleStr) {
+            const m = middleStr.match(/^(.*?)\s*(m|f|n)\.\s*$/);
+            return { genitive: m ? m[1].trim() : middleStr, gender: m ? m[2] : "m" };
+        }
+
+        // Nomen-Distraktoren: dieselbe Wurzel wie die richtige Antwort, aber mit falscher
+        // Endung (aus einer ANDEREN Deklinationsklasse) oder falschem Genus - nie ein anderes Wort.
+        function buildNounDistractors(target) {
+            const { gender: correctGender } = parseNounMiddle(target.middle);
+            const correctEnding = nounGenEndings[target.gram_class];
+            const genitive = parseNounMiddle(target.middle).genitive;
+            const stem = genitive.slice(0, genitive.length - correctEnding.length);
+
+            const wrongEndings = Object.values(nounGenEndings).filter(e => e !== correctEnding);
+            const wrongGenders = allGenders.filter(g => g !== correctGender).sort(() => Math.random() - 0.5);
+
+            return [
+                `${stem}${wrongEndings[0]} ${correctGender}.`,
+                `${stem}${wrongEndings[1]} ${correctGender}.`,
+                `${stem}${correctEnding} ${wrongGenders[0]}.`
+            ];
+        }
+
+        function updateOverallTreasuryDisplay() {
+            const pool = fullPoolNounsAndVerbs();
+            const summary = LudiProgress.getBoxSummary(pool);
+            document.getElementById('overall-treasury').innerHTML =
+                `🏛️ Deine Gesamt-Schatzkammer: <strong>${summary.green} von ${pool.length}</strong> Wörtern zu Gold geprägt (🟡 ${summary.yellow} unterwegs, 🔴 ${summary.red} noch offen)`;
+        }
+
+        function promptLessonsAndStart() {
+            if (typeof globalVocabularyPool === 'undefined') {
+                alert("Fehler: vocabulary.js nicht gefunden!"); return;
+            }
+            LessonFilter.show(globalVocabularyPool, function(filteredPool, selectedLessonNumbers) {
+                activePool = filteredPool;
+                maxSelectedLesson = selectedLessonNumbers ? Math.max(...selectedLessonNumbers) : 999;
+                startMinting();
+            });
+        }
+
+        window.onload = function() {
+            updateOverallTreasuryDisplay();
+            document.getElementById('btn-start-game').addEventListener('click', promptLessonsAndStart);
+            document.getElementById('btn-restart').addEventListener('click', promptLessonsAndStart);
+            document.getElementById('btn-next-round').addEventListener('click', nextRound);
+            document.getElementById('btn-review').addEventListener('click', startReview);
+            for (let i = 0; i < 4; i++) {
+                document.getElementById('opt' + i).addEventListener('click', function() { selectCoin(i); });
+            }
+        };
+
+        // Fehlprägungen bekommen die zerbrochene Münze - vorher legte eine falsche
+        // Antwort dieselbe makellose Münze in die Schatzkammer wie eine richtige,
+        // das Spiel meldete also „Fehlprägung!" und verbuchte sie als Erfolg.
+        function coinClass(c) {
+            if (c.broken) return 'coin cracked';
+            return 'coin ' + ['bronze', 'silver', ''][c.colorIdx]; // '' = Gold (Stufe 4)
+        }
+
+        function renderTreasuryRow() {
+            const row = document.getElementById('treasury-row');
+            row.innerHTML = '';
+            sessionCoins.forEach(c => {
+                const div = document.createElement('div');
+                div.className = coinClass(c);
+                div.title = c.broken ? c.word + ' - Fehlprägung' : c.word;
+                row.appendChild(div);
+            });
+            // Leere Platzhalter für noch ausstehende Münzen dieser Runde
+            for (let i = sessionCoins.length; i < totalRounds; i++) {
+                const div = document.createElement('div');
+                div.className = 'coin blank';
+                row.appendChild(div);
+            }
+        }
+
+        function startMinting() {
+            mintPool = activePool.filter(v =>
+                (v.type === 'noun' || v.type === 'verb') &&
+                !v.latin.includes(' ') &&
+                !v.middle.includes('Pl.') &&
+                v.gram_class !== 'Deponens' &&
+                v.gram_class !== 'unregelmäßig (Passiv von facere)'
+            );
+
+            if (mintPool.length < 4) {
+                alert("In den ausgewählten Lektionen gibt es noch zu wenige Nomen/Verben für dieses Spiel. Bitte wähle weitere Lektionen mit aus.");
+                return;
+            }
+
+            currentRoundIdx = 0;
+            correctCount = 0;
+            sessionCoins = [];
+            missedItems = [];
+            isReviewMode = false;
+
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('end-box').style.display = 'none';
+            document.getElementById('combat-box').style.display = 'flex';
+
+            showRound();
+        }
+
+        function showRound(forced) {
+            roundLocked = false;
+            document.getElementById('feedback-box').style.display = 'none';
+
+            currentTarget = forced || LudiProgress.weightedPick(mintPool);
+
+            const isNoun = currentTarget.type === 'noun';
+            document.getElementById('type-badge').innerText = isNoun ? 'NOMEN' : 'VERB';
+            document.getElementById('stamp-word').innerText = currentTarget.latin;
+
+            document.getElementById('round-number').innerText = isReviewMode
+                ? `WIEDERHOLUNG ${reviewIdx + 1} VON ${reviewQueue.length}`
+                : `MÜNZE ${currentRoundIdx + 1} VON ${totalRounds}`;
+
+            renderTreasuryRow();
+
+            // Distraktoren teilen sich die Wurzel mit der richtigen Antwort -
+            // nur Endung/Genus (Nomen) bzw. Stammform (Verben) unterscheiden sich.
+            let distractors;
+            if (isNoun) {
+                document.getElementById('stamp-hint').innerText = 'Wie lautet Genitiv + Geschlecht?';
+                currentCorrectAnswer = currentTarget.middle;
+                distractors = buildNounDistractors(currentTarget);
+            } else {
+                const round = buildVerbRound(currentTarget);
+                document.getElementById('stamp-hint').innerText = round.hint;
+                currentCorrectAnswer = round.correct;
+                distractors = round.distractors;
+            }
+
+            const finalOptions = [currentCorrectAnswer, ...distractors].sort(() => Math.random() - 0.5);
+            for (let i = 0; i < 4; i++) {
+                const btn = document.getElementById('opt' + i);
+                btn.innerText = finalOptions[i];
+                btn.className = 'coin-btn';
+                btn.disabled = false;
+            }
+        }
+
+        function selectCoin(idx) {
+            if (roundLocked) return;
+            roundLocked = true;
+
+            for (let i = 0; i < 4; i++) document.getElementById('opt' + i).disabled = true;
+
+            const selectedBtn = document.getElementById('opt' + idx);
+            const isCorrect = (selectedBtn.innerText === currentCorrectAnswer);
+
+            const fbBox = document.getElementById('feedback-box');
+            const fbTitle = document.getElementById('fb-title');
+            const fbText = document.getElementById('fb-text');
+            fbBox.style.display = 'flex';
+
+            LudiProgress.recordVocabAttempt(currentTarget.latin, isCorrect);
+
+            // Das Spiel übt Grundformen - bei Nomen Genitiv + Geschlecht, bei Verben die
+            // Stammformen. Beides zählt auf denselben Zähler, weil es dieselbe Fähigkeit ist.
+            // Bewusst NICHT auf die Wortart-Zähler: die zählen in Circus Maximus die
+            // Bedeutung, und Formenwissen gehört nicht in denselben Topf.
+            const unlock = LudiProgress.recordCategoryAttempt('Grundformen', isCorrect);
+            if (unlock) AchievementToast.show(unlock);
+
+            const colorIdx = LudiProgress.getBoxColor(currentTarget.latin);
+
+            if (isCorrect) {
+                if (isReviewMode) reviewCorrectCount++;
+                else { correctCount++; sessionCoins.push({ word: currentTarget.latin, colorIdx }); }
+                selectedBtn.classList.add('correct');
+                fbTitle.innerText = "🪙 MÜNZE GEPRÄGT!";
+                fbTitle.style.color = "#4CAF50";
+                fbText.innerHTML = `<strong>${currentTarget.latin}</strong> (${currentTarget.meaning}) → <strong>${currentCorrectAnswer}</strong> ist richtig geprägt!`;
+            } else {
+                if (!isReviewMode) {
+                    missedItems.push(currentTarget);
+                    sessionCoins.push({ word: currentTarget.latin, colorIdx, broken: true });
+                }
+                selectedBtn.classList.add('wrong');
+                for (let i = 0; i < 4; i++) {
+                    if (document.getElementById('opt' + i).innerText === currentCorrectAnswer) {
+                        document.getElementById('opt' + i).classList.add('correct');
+                    }
+                }
+                fbTitle.innerText = "💥 FEHLPRÄGUNG!";
+                fbTitle.style.color = "#F44336";
+                fbText.innerHTML = `Richtig wäre <strong>${currentCorrectAnswer}</strong> gewesen für <strong>${currentTarget.latin}</strong> (${currentTarget.meaning}).`;
+            }
+
+            renderTreasuryRow();
+        }
+
+        function nextRound() {
+            if (isReviewMode) {
+                reviewIdx++;
+                if (reviewIdx < reviewQueue.length) {
+                    showRound(reviewQueue[reviewIdx]);
+                } else {
+                    endReview();
+                }
+                return;
+            }
+
+            currentRoundIdx++;
+            if (currentRoundIdx < totalRounds) {
+                showRound();
+            } else {
+                endMinting();
+            }
+        }
+
+        function renderEndTreasuryGrid() {
+            const grid = document.getElementById('end-treasury-grid');
+            grid.innerHTML = '';
+            sessionCoins.forEach(c => {
+                const wrap = document.createElement('div');
+                wrap.className = 'coin-wrap';
+                const coin = document.createElement('div');
+                coin.className = coinClass(c);
+                const label = document.createElement('div');
+                label.className = 'coin-label' + (c.broken ? ' fehl' : '');
+                label.innerText = c.word;
+                wrap.appendChild(coin);
+                wrap.appendChild(label);
+                grid.appendChild(wrap);
+            });
+        }
+
+        function endMinting() {
+            document.getElementById('combat-box').style.display = 'none';
+            document.getElementById('feedback-box').style.display = 'none';
+
+            const endBox = document.getElementById('end-box');
+            const title = document.getElementById('end-title');
+            const msg = document.getElementById('end-msg');
+            endBox.style.display = 'block';
+
+            LudiProgress.saveGameResult('principia', correctCount, totalRounds);
+
+            if (correctCount === totalRounds) {
+                title.innerText = "🏛️ MEISTER-MÜNZMEISTER!";
+                title.style.color = "var(--richtig)";
+            } else if (correctCount >= totalRounds * 0.6) {
+                title.innerText = "🪙 GUTE PRÄGERUNDE!";
+                title.style.color = "var(--gold)";
+            } else {
+                title.innerText = "🔨 WEITER ÜBEN!";
+                title.style.color = "var(--falsch)";
+            }
+            msg.innerHTML = `Du hast <strong>${correctCount} von ${totalRounds}</strong> Münzen sauber geprägt.`;
+
+            renderEndTreasuryGrid();
+
+            const summary = LudiProgress.getBoxSummary(mintPool);
+            document.getElementById('box-summary').innerText =
+                `Dein Vokabelkasten (${mintPool.length} Wörter in dieser Auswahl): 🔴 ${summary.red}  🟡 ${summary.yellow}  🟢 ${summary.green}`;
+
+            const reviewBtn = document.getElementById('btn-review');
+            if (missedItems.length > 0) {
+                reviewBtn.style.display = 'inline-block';
+                reviewBtn.innerText = `📚 ${missedItems.length} Fehlprägung(en) wiederholen`;
+            } else {
+                reviewBtn.style.display = 'none';
+            }
+
+            updateOverallTreasuryDisplay();
+        }
+
+        function startReview() {
+            reviewQueue = [...missedItems].sort(() => Math.random() - 0.5);
+            reviewIdx = 0;
+            reviewCorrectCount = 0;
+            isReviewMode = true;
+
+            document.getElementById('end-box').style.display = 'none';
+            document.getElementById('combat-box').style.display = 'flex';
+
+            showRound(reviewQueue[reviewIdx]);
+        }
+
+        function endReview() {
+            document.getElementById('combat-box').style.display = 'none';
+            document.getElementById('feedback-box').style.display = 'none';
+            isReviewMode = false;
+
+            const endBox = document.getElementById('end-box');
+            const title = document.getElementById('end-title');
+            const msg = document.getElementById('end-msg');
+            endBox.style.display = 'block';
+            document.getElementById('btn-review').style.display = 'none';
+            document.getElementById('end-treasury-grid').innerHTML = '';
+            document.getElementById('box-summary').innerText = '';
+
+            title.innerText = "📚 WIEDERHOLUNG GESCHAFFT!";
+            title.style.color = "var(--pompeji)";
+            msg.innerHTML = `Du hast alle <strong>${reviewQueue.length}</strong> Fehlprägungen nochmal versucht und dabei <strong>${reviewCorrectCount}</strong> davon jetzt richtig geprägt.`;
+
+            updateOverallTreasuryDisplay();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Gladiatoren-Duell - Split-Screen</title>
+    <script src="vocabulary.js"></script>
+    <script src="progress.js"></script>
+    <script src="achievementToast.js"></script>
+    <script src="lessonFilter.js"></script>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* Alle platzkostenden Maße hängen an diesem Faktor. Das JavaScript misst
+           nach dem Aufbau nach, ob beide Hälften wirklich ins Bild passen, und
+           dreht ihn herunter, bis sie es tun - siehe passeAnGeraet(). So braucht
+           die Seite keine Annahme über Gerät, Browserleiste oder Schriftgröße. */
+        :root { --dichte: 1; }
+
+        /* 100vh zuerst als Rückfall: Safari vor 15.4 kennt dvh nicht und würfe
+           die einzige Höhenangabe sonst weg - die Seite hätte dann gar keine
+           feste Höhe mehr. */
+        /* Auch das Wurzelelement darf nicht scrollen: Sonst kann das Dokument,
+           wenn es doch einmal zu hoch gerät, nach oben weggeschoben werden. */
+        html { height: 100%; overflow: hidden; }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--wand);
+            color: var(--ink);
+            /* svh, NICHT dvh. Die Reihenfolge ist die Rückfallkette:
+               vh  - alle Browser, aber auf iOS die GROSSE Höhe (ohne Leisten)
+               svh - die kleine Höhe: rechnet immer mit eingeblendeten Leisten
+               Mit dvh (dynamisch) stand die Seite so hoch, wie Safari gerade
+               Platz liess - und sobald die Leisten hereinkamen, war das
+               Dokument 120 px zu hoch und die obere Haelfte verschwand hinter
+               der Adressleiste. Genau das war auf den iPads zu sehen. */
+            height: 100vh;
+            height: 100svh;
+            /* Schaltet das min-height: 100vh aus theme.css ab - es wuerde die
+               selbst bestimmte Hoehe ueberstimmen (min-height schlaegt height). */
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            -webkit-user-select: none;
+        }
+
+        .divider {
+            height: 4px;
+            background: var(--gold);
+            width: 100%;
+            box-shadow: 0 0 10px rgba(80, 60, 30, 0.22);
+            z-index: 10;
+        }
+
+        /* min-height: 0 ist hier das Entscheidende. Ohne diese Zeile darf ein
+           Flex-Element nicht unter seine Inhaltshöhe schrumpfen (min-height: auto
+           ist die Vorgabe). Die Hälfte brauchte mindestens 313 px, zwei davon
+           also 630 - auf einem Bildschirm darunter lief der Body über seine
+           eigene Höhe hinaus, und `overflow: hidden` hat den Rest abgeschnitten:
+           Spieler 2 kam an seine Antwortknöpfe nicht mehr heran. Ein iPad quer
+           mit eingeblendeter Safari-Leiste liegt genau in diesem Bereich. */
+        /* `center` statt `space-between`: Vorher drückte der freie Platz den
+           Inhalt an die beiden Aussenkanten der Hälfte - und weil Spieler 1 auf
+           dem Kopf steht, lagen seine Antwortknöpfe damit genau an der oberen
+           Bildschirmkante, also dort, wo bei zu hohem Dokument abgeschnitten
+           wird. Jetzt sitzt der Inhalt in der Mitte seiner Hälfte, und der freie
+           Platz liegt aussen: Ein Ueberstand frisst dann erst einmal Leerraum. */
+        .player-zone {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 12px; /* Etwas kompakter für iPads */
+            position: relative;
+            background-color: var(--putz-hell);
+            transition: background-color 0.2s ease;
+        }
+        /* Jede Hälfte trägt die Farbe ihrer Fraktion, aber nur als Hauch auf dem
+           Putz: russata warm, veneta kühl. Tintenschrift kommt darauf auf 12,3
+           bzw. 12,25. Vorher waren beide Hälften fast schwarz mit weisser
+           Schrift - in sich lesbar, deshalb hat die Kontrastprüfung nie etwas
+           gemeldet, aber eben noch das alte Theme.
+           Spieler 1 sitzt dem Gerät gegenüber, seine Hälfte steht auf dem Kopf. */
+        #player1 { background-color: #f7ebe6; color: var(--ink); transform: rotate(180deg); }
+        #player2 { background-color: #e9edf5; color: var(--ink); }
+
+        .header-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            font-family: var(--font-display); font-size: 0.95rem; color: var(--pompeji);
+            border-bottom: 1px solid var(--wand-tief); padding-bottom: 4px;
+        }
+
+        .health-display { font-size: 1.1rem; letter-spacing: 2px; }
+
+        .arena-visuals {
+            display: flex; align-items: center; justify-content: center;
+            margin: 2px 0;
+        }
+
+        /* Alles, was Platz kostet, ist an die Bildschirmhöhe gekoppelt und gibt
+           auf kurzen Schirmen zuerst nach - der Gladiator am meisten, die
+           Antwortknöpfe am wenigsten. Auf einem hohen Schirm bleiben die alten
+           Maße die Obergrenze, es sieht dort also aus wie vorher. */
+        .gladiator-img {
+            height: calc(clamp(30px, 11vh, 92px) * var(--dichte)); width: auto;
+            filter: drop-shadow(2px 2px 4px rgba(80, 60, 30, 0.22));
+        }
+
+        /* Der Kasten wächst nicht mehr mit. Vorher schluckte er den ganzen freien
+           Platz und stand als riesige, fast leere Fläche um eine Zeile Text - der
+           Eindruck, den die Klasse mit „die Fragekästen sind zu gross" gemeint
+           hat. Jetzt ist er so hoch wie sein Inhalt. */
+        .question-container {
+            flex: 0 0 auto; display: flex; flex-direction: column; justify-content: center;
+            text-align: center; padding: 8px 6px; background: rgba(80, 60, 30, 0.12);
+            border-radius: 6px; border-left: 4px solid var(--gold);
+            min-height: 0;
+        }
+
+        .q-type { font-size: calc(0.75rem * var(--dichte)); text-transform: uppercase; color: var(--pompeji); font-weight: bold; margin-bottom: 2px; letter-spacing: 1px; }
+        .q-text { font-family: var(--font-body); font-size: calc(clamp(0.8rem, 2.2vh, 1.1rem) * var(--dichte)); color: var(--ink); line-height: 1.2; }
+
+        .answers-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
+        }
+
+        .arena-btn {
+            background: var(--putz); border: 2px solid var(--bronze);
+            color: var(--ink);
+            padding: calc(clamp(5px, 1.7vh, 12px) * var(--dichte)) 4px;
+            font-size: calc(clamp(0.78rem, 2vh, 1rem) * var(--dichte));
+            font-weight: bold;
+            border-radius: 6px; cursor: pointer; text-align: center;
+            touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+        }
+        .arena-btn:not(:disabled):active { background: var(--wand); }
+
+        .countdown-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(244, 236, 219, 0.97); display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 20;
+            font-family: var(--font-display); font-size: 3rem; color: var(--pompeji);
+            font-weight: bold; text-transform: uppercase;
+        }
+
+        .flash-correct { background-color: var(--richtig) !important; color: #fff; }
+        .flash-wrong { background-color: var(--falsch) !important; color: #fff; }
+
+        .end-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(244, 236, 219, 0.97); display: none; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 100; text-align: center; padding: 20px;
+        }
+
+        .end-title { font-family: var(--font-display); font-size: 2.2rem; color: var(--pompeji); margin-bottom: 15px; }
+        .end-btn {
+            background-color: var(--pompeji); color: var(--marmor);
+            font-family: var(--font-display); font-weight: bold; padding: 12px 35px;
+            border: none; border-radius: 20px; font-size: 1.2rem; cursor: pointer;
+            text-transform: uppercase; text-decoration: none; margin-top: 15px; display: inline-block;
+            touch-action: manipulation;
+        }
+    </style>
+</head>
+<body>
+<a href="index.html" id="global-menu-btn" onclick="return confirm('Zurück zum Hauptmenü? Der aktuelle Fortschritt in dieser Runde geht verloren.');" title="Zurück zum Hauptmenü">🏠</a>
+
+    <div class="player-zone" id="player1">
+        <div class="countdown-overlay" id="p1-countdown">5</div>
+        <div class="header-bar">
+            <span>factio russata (rot)</span>
+            <div class="health-display" id="p1-health">❤️❤️❤️❤️❤️</div>
+        </div>
+        <div class="arena-visuals">
+            <img class="gladiator-img" src="assets/duell/gladiator_red.png" alt="Gladiator Rot">
+        </div>
+        <div class="question-container">
+            <div class="q-type" id="p1-qtype">Bereitmachen...</div>
+            <div class="q-text" id="p1-qtext">Wartet auf den Gongschlag!</div>
+        </div>
+        <div class="answers-grid">
+            <button class="arena-btn" id="p1-opt0" disabled>-</button>
+            <button class="arena-btn" id="p1-opt1" disabled>-</button>
+            <button class="arena-btn" id="p1-opt2" disabled>-</button>
+            <button class="arena-btn" id="p1-opt3" disabled>-</button>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="player-zone" id="player2">
+        <div class="countdown-overlay" id="p2-countdown">5</div>
+        <div class="header-bar">
+            <span>factio veneta (blau)</span>
+            <div class="health-display" id="p2-health">❤️❤️❤️❤️❤️</div>
+        </div>
+        <div class="arena-visuals">
+            <img class="gladiator-img" src="assets/duell/gladiator_blue.png" alt="Gladiator Blau">
+        </div>
+        <div class="question-container">
+            <div class="q-type" id="p2-qtype">Bereitmachen...</div>
+            <div class="q-text" id="p2-qtext">Wartet auf den Gongschlag!</div>
+        </div>
+        <div class="answers-grid">
+            <button class="arena-btn" id="p2-opt0" disabled>-</button>
+            <button class="arena-btn" id="p2-opt1" disabled>-</button>
+            <button class="arena-btn" id="p2-opt2" disabled>-</button>
+            <button class="arena-btn" id="p2-opt3" disabled>-</button>
+        </div>
+    </div>
+
+    <div class="end-screen" id="end-overlay">
+        <div class="end-title" id="end-winner-text">SIEG!</div>
+        <p style="font-size: 1.2rem; margin-bottom: 20px;">Die Arena erzittert vor eurem Ruhm.</p>
+        <button class="end-btn" id="btn-restart">Nächstes Duell</button>
+        <br>
+        <a href="index.html" class="end-btn" style="background: var(--wand-tief); color: var(--ink); font-size: 0.9rem; padding: 8px 20px;">Zurück zur Übersicht</a>
+    </div>
+
+    <script>
+        let hp = { p1: 5, p2: 5 };
+        let currentCorrectAnswer = "";
+        let currentDuelItem = null;
+        let currentQType = 0;   // 0 = Bedeutung, 1 = Formen, 2 = Klassen (fuer die Achievement-Kategorie)
+
+        // Gleiche Zuordnung wie in Circus Maximus, damit Bedeutungsfragen aus beiden
+        // Spielen auf dieselben Zähler einlaufen.
+        const WORTART_CATEGORY = { noun: 'Substantiv', verb: 'Verb', adjective: 'Adjektiv' };
+        let countdownInterval = null;
+        let activePool = [];
+        let maxSelectedLesson = 0;
+
+        function promptLessonsAndStart() {
+            if (typeof globalVocabularyPool === 'undefined' || globalVocabularyPool.length === 0) {
+                alert("Fehler: Die Datei 'vocabulary.js' konnte nicht geladen werden!");
+                return;
+            }
+            LessonFilter.show(globalVocabularyPool, function(filteredPool, selectedLessonNumbers) {
+                activePool = filteredPool;
+                maxSelectedLesson = selectedLessonNumbers ? Math.max(...selectedLessonNumbers) : 999;
+                initArena();
+            });
+        }
+
+        /* ============ PASST DAS SPIEL AUF DIESEN BILDSCHIRM? ============
+           Statt auf CSS-Einheiten zu vertrauen, wird nachgemessen. Das ist der
+           einzige Weg, der ohne Wissen über das Gerät auskommt:
+
+           1. Die Höhe kommt aus visualViewport - das ist der WIRKLICH sichtbare
+              Bereich. Er berücksichtigt die Safari-Leisten, die geteilte Ansicht
+              und sogar ein versehentliches Aufziehen per Pinch-Geste. 100dvh
+              kennt ältere iPads nicht, innerHeight kennt den Zoom nicht.
+           2. Danach wird geprüft, ob der Inhalt einer Hälfte wirklich
+              hineinpasst. Wenn nicht, sinkt --dichte in kleinen Schritten, bis
+              er es tut. Damit ist es gleichgültig, wie hoch der Bildschirm ist,
+              wie lang die Antworten sind oder wie gross die Schrift steht.
+
+           Ohne JavaScript bleibt das CSS mit seinen vh-Werten als Rückfall. */
+        /* Die kleinste Höhe nehmen, die das Gerät nennt. iOS meldet je nach
+           Zustand der Safari-Leisten verschiedene Werte; wer sich auf einen
+           verlässt, baut die Seite irgendwann 120 px zu hoch - genau das ist im
+           Unterricht passiert. Die kleinste ist immer die sichere. */
+        /* Wenn visualViewport eine KLEINERE Höhe meldet als innerHeight, kennt der
+           Browser den Unterschied zwischen Bildschirm und sichtbarem Bereich - dann
+           ist die Messung verlässlich und wird genau übernommen.
+           Melden beide dasselbe, weiss die Seite nicht, ob eine Browserleiste im
+           Weg ist. Auf einem Tastatur-Rechner ist das richtig so; auf einem
+           Tablet fast nie - dort steht praktisch immer eine Leiste im Bild, und
+           die Seite baut sich dann um deren Höhe zu hoch. Genau das ist auf den
+           iPads passiert, in Chrome sogar trotz svh.
+           Deshalb: Auf Geräten mit Touch in diesem Fall einen Sicherheitsabzug
+           nehmen. Ein schmaler Streifen Hintergrund unten ist der kleinere
+           Schaden gegenüber einer Knopfreihe, an die niemand herankommt. */
+        const LEISTEN_ABZUG = 0.08;   // 8 % - deckt die Leiste von Safari wie Chrome
+
+        function sichtbareHoehe() {
+            const kandidaten = [];
+            const vv = window.visualViewport ? window.visualViewport.height : null;
+            if (vv) kandidaten.push(vv);
+            if (document.documentElement) kandidaten.push(document.documentElement.clientHeight);
+            kandidaten.push(window.innerHeight);
+            const brauchbar = kandidaten.filter(function (h) { return h > 200; });
+            if (!brauchbar.length) return 0;
+
+            let hoehe = Math.min.apply(null, brauchbar);
+
+            const meldetUnterschied = vv && (window.innerHeight - vv) > 2;
+            const tippgeraet = (navigator.maxTouchPoints || 0) > 0;
+            if (!meldetUnterschied && tippgeraet) hoehe = hoehe * (1 - LEISTEN_ABZUG);
+
+            return Math.round(hoehe);
+        }
+
+        function passeAnGeraet() {
+            /* Nur VERKLEINERN, nie vergrössern. Das CSS setzt mit 100svh bereits
+               die sichere Höhe; wenn die Messung einen grösseren Wert liefert -
+               und genau das tut iOS, solange die Safari-Leisten eingeklappt sind -
+               darf sie ihn nicht überschreiben. Vorher hat das JavaScript die
+               gute CSS-Höhe durch die schlechte gemessene ersetzt. */
+            const hoehe = sichtbareHoehe();
+            const jetzt = document.body.clientHeight;
+            if (hoehe > 200 && hoehe < jetzt) document.body.style.height = hoehe + 'px';
+
+            /* Falls das Dokument zwischenzeitlich zu hoch war und verschoben
+               wurde, wieder nach oben holen. Sonst bleibt die obere Hälfte hinter
+               der Adressleiste - und weil Spieler 1 auf dem Kopf steht, sind das
+               ausgerechnet seine Antwortknöpfe. Ein scroll-Ereignis abzuwarten
+               hilft nicht: Bei `overflow: hidden` feuert keines. */
+            if (window.scrollY || document.documentElement.scrollTop) window.scrollTo(0, 0);
+
+            const wurzel = document.documentElement;
+            const zonen = [document.getElementById('player1'), document.getElementById('player2')]
+                .filter(z => z && z.querySelector('.answers-grid'));
+            if (!zonen.length) return;
+
+            // Wie weit hängt die Knopfreihe aus ihrer Hälfte heraus?
+            // NICHT über scrollHeight: Die Hälfte hat `overflow: visible`, dort
+            // meldet scrollHeight dieselbe Zahl wie clientHeight, auch wenn der
+            // Inhalt längst heraushängt.
+            // Und in BEIDE Richtungen: Spieler 1 steht auf dem Kopf, bei ihm
+            // wandert die Knopfreihe nach oben aus dem Bild.
+            const ueberstand = () => zonen.reduce((max, z) => {
+                const zb = z.getBoundingClientRect();
+                const rb = z.querySelector('.answers-grid').getBoundingClientRect();
+                return Math.max(max, (zb.top + 8) - rb.top, rb.bottom - (zb.bottom - 8));
+            }, 0);
+
+            let dichte = 1;
+            wurzel.style.setProperty('--dichte', '1');
+            // Schrittweise verdichten, bis die Knopfreihe in der Hälfte liegt.
+            // Die Schleife ist nach oben begrenzt, damit sie nie hängen bleibt.
+            for (let runde = 0; runde < 14 && ueberstand() > 0; runde++) {
+                dichte -= 0.05;
+                if (dichte < 0.5) break;
+                wurzel.style.setProperty('--dichte', dichte.toFixed(2));
+            }
+        }
+        window.addEventListener('resize', passeAnGeraet);
+        window.addEventListener('orientationchange', function () { setTimeout(passeAnGeraet, 250); });
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', passeAnGeraet);
+            window.visualViewport.addEventListener('scroll', passeAnGeraet);
+        }
+        // Safari blendet seine Leisten erst nach dem Laden ein. Die zuerst
+        // gemessene Höhe stimmt dann nicht mehr, und ein Ereignis dafür kommt
+        // nicht zuverlässig. Deshalb in den ersten Sekunden mehrfach nachmessen.
+        [250, 800, 2000].forEach(function (ms) { setTimeout(passeAnGeraet, ms); });
+
+        /* Wachhund. Die Ereignisse oben sind der schnelle Weg, aber sie sind
+           nicht verlässlich - beim Ein- und Ausblenden der Safari-Leisten bleibt
+           die Meldung auf manchen Geräten schlicht aus, und dann steht die Seite
+           mit einer veralteten Höhe da. Genau so ist die obere Hälfte im
+           Unterricht hinter der Adressleiste verschwunden.
+           Zweimal je Sekunde nachzusehen, ob die gemessene Höhe noch zur
+           gesetzten passt, kostet nichts und macht die Seite unabhängig davon,
+           ob ein Gerät seine Ereignisse schickt. */
+        setInterval(function () {
+            const soll = sichtbareHoehe();
+            if (soll > 200 && soll < document.body.clientHeight - 2) passeAnGeraet();
+        }, 500);
+
+
+        window.onload = function() {
+            passeAnGeraet();
+            document.getElementById('btn-restart').addEventListener('click', promptLessonsAndStart);
+            for(let i=0; i<4; i++) {
+                document.getElementById(`p1-opt${i}`).addEventListener('click', function() { playerClick(1, i); });
+            }
+            for(let i=0; i<4; i++) {
+                document.getElementById(`p2-opt${i}`).addEventListener('click', function() { playerClick(2, i); });
+            }
+            promptLessonsAndStart();
+        };
+
+        function getVerbStem(item) {
+            return item.latin.slice(0, -3);
+        }
+        function classifyPerfectPattern(perfect) {
+            if (perfect.endsWith('vī')) return 'v';
+            if (perfect.endsWith('uī')) return 'u';
+            if (perfect.endsWith('sī') || perfect.endsWith('xī')) return 's';
+            return 'other';
+        }
+        function fakePerfect(pattern, stem) {
+            if (pattern === 'v') return stem + 'āvī';
+            if (pattern === 'u') return stem + 'uī';
+            return stem + 'sī';
+        }
+
+        function initArena() {
+            if (activePool.length === 0) {
+                alert("Fehler: Kein Vokabelpool ausgewählt!");
+                return;
+            }
+            hp = { p1: 5, p2: 5 };
+            document.getElementById('end-overlay').style.display = 'none';
+            document.getElementById('player1').classList.remove("flash-correct", "flash-wrong");
+            document.getElementById('player2').classList.remove("flash-correct", "flash-wrong");
+            updateHearts();
+            startCountdown();
+        }
+
+        function updateHearts() {
+            document.getElementById('p1-health').innerText = "❤️".repeat(hp.p1) + "🖤".repeat(5 - hp.p1);
+            document.getElementById('p2-health').innerText = "❤️".repeat(hp.p2) + "🖤".repeat(5 - hp.p2);
+        }
+
+        function startCountdown() {
+            lockAllButtons(true);
+            let counter = 5;
+            ["p1", "p2"].forEach(p => {
+                const overlay = document.getElementById(`${p}-countdown`);
+                overlay.style.display = "flex";
+                overlay.innerText = counter;
+            });
+
+            if(countdownInterval) clearInterval(countdownInterval);
+            countdownInterval = setInterval(() => {
+                counter--;
+                if (counter > 0) {
+                    ["p1", "p2"].forEach(p => document.getElementById(`${p}-countdown`).innerText = counter);
+                } else if (counter === 0) {
+                    ["p1", "p2"].forEach(p => document.getElementById(`${p}-countdown`).innerText = "Pugnate!");
+                } else {
+                    clearInterval(countdownInterval);
+                    ["p1", "p2"].forEach(p => document.getElementById(`${p}-countdown`).style.display = "none");
+                    nextRound();
+                }
+            }, 1000);
+        }
+
+        function translateType(type) {
+            const types = { noun: "Substantiv", verb: "Verb", adjective: "Adjektiv", adverb: "Adverb", preposition: "Präposition", pronoun: "Pronomen", conjunction: "Konjunktion", other: "Partikel" };
+            return types[type] || type;
+        }
+
+        function nextRound() {
+            const item = activePool[Math.floor(Math.random() * activePool.length)];
+            currentDuelItem = item;
+            let allowedTypes = [0]; 
+            if (item.type === "noun" || item.type === "verb") allowedTypes.push(1, 2);
+            if (item.type === "adjective") allowedTypes.push(2);
+
+            const qType = allowedTypes[Math.floor(Math.random() * allowedTypes.length)];
+            currentQType = qType;
+            let questionText = "";
+            let categoryText = "";
+            let wrongPool = [];
+
+            if (qType === 0) {
+                categoryText = `🔮 Bedeutung — ${translateType(item.type)}`;
+                questionText = `Was bedeutet „${item.latin}“?`;
+                currentCorrectAnswer = item.meaning;
+
+                wrongPool = activePool
+                    .filter(i => i.type === item.type && i.meaning !== currentCorrectAnswer)
+                    .map(i => i.meaning);
+
+                wrongPool = [...new Set(wrongPool)].sort(() => Math.random() - 0.5).slice(0, 3);
+                while (wrongPool.length < 3) {
+                    let fb = activePool[Math.floor(Math.random() * activePool.length)];
+                    if (fb.meaning !== currentCorrectAnswer && !wrongPool.includes(fb.meaning)) wrongPool.push(fb.meaning);
+                }
+            } else if (qType === 1) {
+                if (item.type === "noun") {
+                    categoryText = "🏛️ Genitiv & Geschlecht";
+                    questionText = `Wie lauten Genitiv und Geschlecht von „${item.latin}“?`;
+                    currentCorrectAnswer = item.middle;
+
+                    let gen = item.middle.split(" ")[0];
+                    let gended = item.middle.split(" ")[1] || "m.";
+                    let base = gen;
+                    if (gen.endsWith("ae")) base = gen.slice(0, -2);
+                    else if (gen.endsWith("iī")) base = gen.slice(0, -2);
+                    else if (gen.endsWith("ī")) base = gen.slice(0, -1);
+                    else if (gen.endsWith("is")) base = gen.slice(0, -2);
+
+                    if (item.gram_class.includes("a-Deklination")) {
+                        wrongPool = [base + "ī m.", base + "is f.", base + "ae m."];
+                    } else if (item.gram_class.includes("o-Deklination")) {
+                        let altG = gended === "m." ? "f." : "m.";
+                        wrongPool = [base + "ae f.", base + "is " + gended, base + (gen.endsWith("iī") ? "iī " : "ī ") + altG];
+                    } else if (item.gram_class.includes("konsonantische")) {
+                        let altG = gended === "m." ? "f." : "m.";
+                        wrongPool = [item.latin + "ī " + gended, base + "is " + altG, base + "ae f."];
+                    } else {
+                        wrongPool = [base + "ī m.", base + "ae f.", base + "is n."];
+                    }
+                } else {
+                    const perfectKnown = !!item.perfect && (item.perfectLesson || item.lesson) <= maxSelectedLesson;
+                    const pppKnown = !!item.ppp && (item.pppLesson || item.lesson) <= maxSelectedLesson;
+
+                    if (!perfectKnown) {
+                        categoryText = "⚡ Konjugations-Formen";
+                        questionText = `Wie lautet die 1. Person Singular Präsens von „${item.latin}“?`;
+                        currentCorrectAnswer = item.middle;
+                        wrongPool = activePool.filter(i => i.type === item.type && i.middle !== currentCorrectAnswer && i.middle !== "Ausruf" && i.middle !== "Adv.").map(i => i.middle);
+                    } else {
+                        const stem = getVerbStem(item);
+                        const realPerfectPattern = classifyPerfectPattern(item.perfect);
+                        const wrongPatterns = ['v', 'u', 's'].filter(p => p !== realPerfectPattern).slice(0, 2);
+                        const fakePerfect1 = fakePerfect(wrongPatterns[0], stem);
+                        const fakePerfect2 = fakePerfect(wrongPatterns[1], stem);
+
+                        let stemForPresent = item.latin.replace(/āre|ēre|īre|ere/, "");
+                        let fakePresentOptions;
+                        if (item.gram_class.includes("a-Konjugation")) fakePresentOptions = [stemForPresent + "eō", stemForPresent + "iō"];
+                        else if (item.gram_class.includes("e-Konjugation")) fakePresentOptions = [stemForPresent + "ō", stemForPresent + "iō"];
+                        else if (item.gram_class.includes("i-Konjugation") || item.gram_class.includes("gemischte")) fakePresentOptions = [stemForPresent + "ō", stemForPresent + "eō"];
+                        else fakePresentOptions = [stemForPresent + "eō", stemForPresent + "iō"];
+                        const fakePresent = fakePresentOptions[Math.floor(Math.random() * fakePresentOptions.length)];
+
+                        if (pppKnown) {
+                            categoryText = "⚡ Stammformen";
+                            questionText = `Wie lauten die Stammformen von „${item.latin}“?`;
+                            currentCorrectAnswer = `${item.middle}, ${item.perfect}, ${item.ppp}`;
+                            wrongPool = [
+                                `${item.middle}, ${fakePerfect1}, ${item.ppp}`,
+                                `${item.middle}, ${fakePerfect2}, ${item.ppp}`,
+                                `${fakePresent}, ${item.perfect}, ${item.ppp}`
+                            ];
+                        } else {
+                            categoryText = "⚡ Stammformen (Präsens + Perfekt)";
+                            questionText = `Wie lauten Präsens und Perfekt von „${item.latin}“?`;
+                            currentCorrectAnswer = `${item.middle}, ${item.perfect}`;
+                            wrongPool = [
+                                `${item.middle}, ${fakePerfect1}`,
+                                `${item.middle}, ${fakePerfect2}`,
+                                `${fakePresent}, ${item.perfect}`
+                            ];
+                        }
+                    }
+                }
+            } else if (qType === 2) {
+                if (item.type === "noun") {
+                    categoryText = "⚔️ Deklinationsklassen";
+                    questionText = `Zu welcher Deklination gehört „${item.latin}“ (${item.gram_clue})?`;
+                    currentCorrectAnswer = item.gram_class;
+                    wrongPool = ["a-Deklination", "o-Deklination", "konsonantische Deklination", "u-Deklination", "e-Deklination"].filter(c => c !== currentCorrectAnswer);
+                } else if (item.type === "verb") {
+                    categoryText = "🔥 Konjugationsklassen";
+                    questionText = `Zu welcher Konjugation gehört der Infinitiv „${item.latin}“?`;
+                    currentCorrectAnswer = item.gram_class;
+                    wrongPool = ["a-Konjugation", "e-Konjugation", "i-Konjugation", "konsonantische Konjugation", "gemischte Konjugation"].filter(c => c !== currentCorrectAnswer);
+                } else if (item.type === "adjective") {
+                    categoryText = "🎨 Adjektiv-Klassen";
+                    questionText = `Welcher Deklinationsklasse folgt „${item.latin}“?`;
+                    currentCorrectAnswer = item.gram_class;
+                    wrongPool = ["a-/o-Deklination", "konsonantische Deklination", "u-Deklination", "e-Deklination"].filter(c => c !== currentCorrectAnswer);
+                }
+            }
+
+            wrongPool = [...new Set(wrongPool)].sort(() => Math.random() - 0.5).slice(0, 3);
+            let safety = 0;
+            while (wrongPool.length < 3 && safety < 50) {
+                safety++;
+                let fb = activePool[Math.floor(Math.random() * activePool.length)];
+                let fbVal = qType === 0 ? fb.meaning : fb.middle;
+                if(fbVal && fbVal !== currentCorrectAnswer && !wrongPool.includes(fbVal)) {
+                    wrongPool.push(fbVal);
+                }
+            }
+
+            const finalOptions = [currentCorrectAnswer, ...wrongPool].sort(() => Math.random() - 0.5);
+
+            ["p1", "p2"].forEach(p => {
+                document.getElementById(`${p}-qtype`).innerText = categoryText;
+                document.getElementById(`${p}-qtext`).innerText = questionText;
+                // Die Fraktionstönung der beiden Hälften steht jetzt im CSS - sie
+                // ändert sich ja nie. Hier wurde sie in jeder Runde neu gesetzt,
+                // und zwar mit den fast schwarzen Werten des alten Themes: Die
+                // Spielhälften wurden dunkel, sobald die erste Frage erschien.
+                finalOptions.forEach((opt, idx) => {
+                    document.getElementById(`${p}-opt${idx}`).innerText = opt;
+                });
+            });
+
+            // Die Antworten sind mal kurz, mal dreizeilig - nach jeder neuen
+            // Frage also erneut nachmessen.
+            passeAnGeraet();
+            lockAllButtons(false);
+        }
+
+        function lockAllButtons(lockState) {
+            for(let i=0; i<4; i++) {
+                document.getElementById(`p1-opt${i}`).disabled = lockState;
+                document.getElementById(`p2-opt${i}`).disabled = lockState;
+            }
+        }
+
+        function playerClick(playerNum, optIdx) {
+            lockAllButtons(true);
+            const clickedBtn = document.getElementById(`p${playerNum}-opt${optIdx}`);
+            const isCorrect = (clickedBtn.innerText === currentCorrectAnswer);
+            LudiProgress.recordVocabAttempt(currentDuelItem.latin, isCorrect);
+
+            // Bedeutungsfragen zählen auf die Wortart-Zähler ein - dieselbe Fähigkeit,
+            // die Circus Maximus abfragt. Formen- und Klassenfragen bekommen eigene.
+            const kategorie = currentQType === 0
+                ? WORTART_CATEGORY[currentDuelItem.type]
+                : (currentQType === 1 ? 'Grundformen' : 'Wortartklassen');
+            if (kategorie) {
+                const unlock = LudiProgress.recordCategoryAttempt(kategorie, isCorrect);
+                if (unlock) AchievementToast.show(unlock);
+            }
+            let winnerZone = playerNum === 1 ? "player1" : "player2";
+
+            if (isCorrect) {
+                if (playerNum === 1) hp.p2--; else hp.p1--;
+                document.getElementById(winnerZone).classList.add("flash-correct");
+            } else {
+                if (playerNum === 1) hp.p1--; else hp.p2--;
+                document.getElementById(winnerZone).classList.add("flash-wrong");
+            }
+
+            updateHearts();
+
+            setTimeout(() => {
+                document.getElementById("player1").classList.remove("flash-correct", "flash-wrong");
+                document.getElementById("player2").classList.remove("flash-correct", "flash-wrong");
+
+                if (hp.p1 <= 0 || hp.p2 <= 0) endMatch();
+                else startCountdown(); 
+            }, 1200);
+        }
+
+        function endMatch() {
+            const overlay = document.getElementById('end-overlay');
+            const winText = document.getElementById('end-winner-text');
+            overlay.style.display = "flex";
+
+            if (hp.p1 > hp.p2) {
+                winText.innerText = "⚔️ FĪNIS! RUSSATA VINCIT! ⚔️\n(Rot gewinnt das Duell!)";
+                winText.style.color = "#cc0000";
+            } else {
+                winText.innerText = "⚔️ FĪNIS! VENETA VINCIT! ⚔️\n(Blau gewinnt das Duell!)";
+                winText.style.color = "#0000cc";
+            }
+        }
+    </script>
+</body>
+</html>

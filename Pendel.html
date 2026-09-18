@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Pendel! - Die Pendelmethode</title>
+    <script src="vocabulary.js"></script>
+    <script src="progress.js"></script>
+    <script src="achievementToast.js"></script>
+    <script src="lessonFilter.js"></script>
+    <script src="nounEngine.js"></script>
+    <script src="verbEngine.js"></script>
+    <script src="sentenceEngine.js"></script>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--wand);
+            color: var(--ink);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 15px;
+        }
+
+        h1 {
+            color: var(--pompeji);
+            font-family: var(--font-display);
+            text-transform: uppercase;
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+            text-align: center;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 4px rgba(80, 60, 30, 0.22);
+        }
+        .subtitle { font-family: var(--font-display); font-style: italic; color: var(--ink-soft); margin-bottom: 15px; text-align: center; }
+
+        .game-container {
+            width: 100%;
+            max-width: 700px;
+            background: var(--putz);
+            border: 4px solid var(--bronze);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(80, 60, 30, 0.22);
+            position: relative;
+            min-height: 480px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .start-screen { text-align: center; padding: 10px; }
+
+
+        .round-number { text-align: center; font-size: 0.9rem; color: var(--ink-soft); margin-bottom: 6px; letter-spacing: 1px; }
+        .progress-bar-container { height: 8px; border-radius: 4px; margin-bottom: 18px; }
+
+        .step-tracker { display: flex; justify-content: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+        .step-pill { font-size: 0.8rem; padding: 5px 12px; border-radius: 14px; border: 2px solid var(--wand-tief); color: var(--ink-soft); }
+        .step-pill.current { border-color: var(--gold); color: var(--pompeji); font-weight: bold; }
+        .step-pill.done { border-color: var(--richtig); color: var(--richtig); }
+
+        .sentence-box {
+            background: var(--putz); color: #2a2a2a; border-radius: 8px;
+            padding: 35px 20px 25px; margin-bottom: 15px; text-align: center;
+            box-shadow: 0 4px 15px rgba(80, 60, 30, 0.12);
+            position: relative;
+        }
+        #pendulum-svg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; overflow: visible;
+        }
+        .pendulum-arrow { animation: arrowFadeIn 0.35s ease; }
+        @keyframes arrowFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .latin-word {
+            font-family: var(--font-display); font-size: 1.4rem; font-weight: bold;
+            display: inline-block; margin: 4px 6px; padding: 4px 8px; border-radius: 6px;
+            cursor: pointer; border: 2px solid transparent; transition: all 0.15s;
+        }
+        .latin-word:hover { background: rgba(128,0,0,0.08); }
+        .latin-word.found-sub { background: var(--richtig); color: #fff; cursor: default; }
+        .latin-word.found-praed { background: #1f5f89; color: #fff; cursor: default; }
+        .latin-word.found-obj { background: #6f3487; color: #fff; cursor: default; }
+        .latin-word.found-dat { background: #a34200; color: #fff; cursor: default; }
+        .latin-word.adverbial { background: #e0e0e0; color: var(--ink-soft); cursor: default; font-style: italic; }
+        .latin-word.wrong-flash { background: var(--falsch); color: #fff; }
+
+        .instruction-line {
+            text-align: center; font-size: 1.15rem; font-weight: bold; color: var(--pompeji);
+            margin-bottom: 14px; min-height: 1.6em;
+        }
+
+        .geruest-box {
+            background: rgba(212,175,55,0.08); border: 2px dashed var(--gold); border-radius: 8px;
+            padding: 14px; margin-bottom: 15px; text-align: center; font-size: 1.05rem; min-height: 2.2em;
+        }
+        .geruest-box .tag { font-size: 0.7rem; color: var(--ink-soft); display: block; }
+
+        .adverbial-note {
+            background: rgba(90, 70, 40, 0.07); border-radius: 8px; padding: 12px; margin-bottom: 15px;
+            font-size: 0.95rem; color: var(--ink-soft); text-align: center; display: none;
+        }
+
+        .feedback-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(244, 236, 219, 0.96); border-radius: 12px;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            padding: 25px; text-align: center; z-index: 10;
+        }
+        .feedback-title { font-family: var(--font-display); font-size: 1.7rem; margin-bottom: 15px; }
+        .feedback-explanation { font-size: 1.05rem; line-height: 1.5; margin-bottom: 25px; max-width: 500px; }
+
+        .end-treasury-grid { font-size: 1rem; color: var(--ink-soft); }
+    </style>
+</head>
+<body>
+<a href="index.html" id="global-menu-btn" onclick="return confirm('Zurück zum Hauptmenü? Der aktuelle Fortschritt in dieser Runde geht verloren.');" title="Zurück zum Hauptmenü">🏠</a>
+
+    <!-- Reiner Zierrat: hinter dem Inhalt, ohne Klickfläche, auf schmalen Schirmen aus -->
+    <div class="saeule-links" aria-hidden="true"></div>
+    <div class="saeule-rechts" aria-hidden="true"></div>
+
+    <h1>⚖️ Pendel!</h1>
+    <div class="subtitle">Die Pendelmethode</div>
+
+    <div class="trenner" aria-hidden="true"></div>
+
+    <div class="game-container">
+
+        <!-- START -->
+        <div id="start-screen" class="start-screen">
+            <h2 style="font-family: var(--font-display); color: var(--ink); margin-bottom: 12px;">Die Pendelmethode üben</h2>
+            <div class="notice-box">
+                <h3>📜 So funktioniert's:</h3>
+                <p>Du bekommst einen vollständigen lateinischen Satz. Schrittweise baust du dir daraus das Gerüst - genau wie in der Klassenarbeit:</p>
+                <p style="margin-top: 10px;"><span class="step">1</span> Finde zuerst das <strong>Subjekt</strong>.</p>
+                <p style="margin-top: 6px;"><span class="step">2</span> Von dort geht's nach hinten zum <strong>Prädikat</strong>.</p>
+                <p style="margin-top: 6px;"><span class="step">3</span> Und wieder zurück zum <strong>Objekt</strong> (falls vorhanden - Akkusativ oder Dativ, je nach Verb).</p>
+                <p style="margin-top: 6px;"><span class="step">4</span> Übrige Wörter (Genitiv-Attribut, Adverbialien) werden dir am Ende erklärt.</p>
+                <p style="margin-top: 10px; color: var(--ink-soft);">Die Sätze werden aus eurem echten Wortschatz erzeugt, passend zu den Lektionen, die du auswählst - je mehr Lektionen, desto mehr Tempora und Satzglieder können vorkommen.</p>
+            </div>
+            <button class="start-btn" id="btn-start-game">Pendeln starten</button>
+        </div>
+
+        <!-- SPIELFELD -->
+        <div id="combat-box" style="display: none; flex-grow: 1; flex-direction: column;">
+            <div class="round-number" id="round-number">SATZ 1 VON 8</div>
+            <div class="progress-bar-container"><div class="progress-bar" id="progress-bar"></div></div>
+
+            <div class="step-tracker">
+                <div class="step-pill" id="pill-sub">1. Subjekt</div>
+                <div class="step-pill" id="pill-praed">2. Prädikat</div>
+                <div class="step-pill" id="pill-obj">3. Objekt</div>
+                <div class="step-pill" id="pill-done">4. Fertig</div>
+            </div>
+
+            <div class="instruction-line" id="instruction-line">Finde das Subjekt!</div>
+
+            <div class="sentence-box">
+                <svg id="pendulum-svg">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                            <polygon points="0 0, 7 3, 0 6" fill="#b8860b" />
+                        </marker>
+                    </defs>
+                </svg>
+                <div id="sentence-words"></div>
+            </div>
+
+            <div class="geruest-box" id="geruest-box">
+                <span class="tag">DEIN GERÜST</span>
+                <span id="geruest-text">...</span>
+            </div>
+
+            <div class="adverbial-note" id="adverbial-note"></div>
+        </div>
+
+        <!-- FEEDBACK -->
+        <div class="feedback-overlay" id="feedback-box">
+            <div class="feedback-title" id="fb-title">Richtig!</div>
+            <div class="feedback-explanation" id="fb-text"></div>
+            <button class="start-btn" style="font-size:1.1rem; padding:10px 30px;" id="btn-next">Weiter</button>
+        </div>
+
+        <!-- ENDE -->
+        <div id="end-box" style="display: none; text-align: center; padding: 20px 10px; margin: auto;">
+            <h2 id="end-title" style="font-size: 2.2rem; color: var(--pompeji); font-family: var(--font-display); margin-bottom: 15px;">GESCHAFFT!</h2>
+            <p id="end-msg" style="margin: 10px 0; font-size: 1.15rem; line-height: 1.6;"></p>
+            <p class="end-treasury-grid" id="box-summary"></p>
+            <button class="start-btn" style="font-size:1.1rem; padding:10px 25px; background: var(--falsch); color:#fff; display:none; margin: 15px 0 12px;" id="btn-review">📚 Fehler wiederholen</button>
+            <br>
+            <button class="start-btn" style="font-size:1.1rem; padding:12px 30px;" id="btn-restart">Neue Sätze</button>
+            <br>
+            <a href="index.html" class="start-btn" style="text-decoration: none; display: inline-block; font-size:1rem; background: var(--wand-tief); color: var(--ink); margin-top: 15px;">Zurück zum Menü</a>
+        </div>
+    </div>
+
+    <script>
+        // Satzbau kommt vollständig aus SentenceEngine (gemeinsam mit Via Rōmāna).
+        // Die Valenz jedes Verbs steht als Feld `valenz` in vocabulary.js.
+
+        // Satzglied-Rolle → Achievement-Kategorie (siehe CATEGORY_META in progress.js)
+        const ROLE_CATEGORY = {
+            sub:   'Subjekt',
+            praed: 'Prädikat',
+            obj:   'Akkusativobjekt',
+            dat:   'Dativobjekt',
+            attr:  'Genitiv-Attribut',
+            adv:   'Adverbiale'
+        };
+
+        let activePool = [];
+        let nounPool = [];
+        let verbPool = [];
+        let maxSelectedLesson = 0;
+
+        let currentRound = null;
+        let roundIdx = 0;
+        let totalRounds = 8;
+        let correctCount = 0;
+        let currentStep = 'sub';
+        let roundHadError = false;
+        let stepHadError = false;
+        let foundSpanOrder = [];
+
+        let missedItems = [];
+        let isReviewMode = false;
+        let reviewQueue = [];
+        let reviewIdx = 0;
+        let reviewCorrectCount = 0;
+
+        function promptLessonsAndStart() {
+            if (typeof globalVocabularyPool === 'undefined') {
+                alert("Fehler: vocabulary.js nicht gefunden!"); return;
+            }
+            LessonFilter.show(globalVocabularyPool, function(filteredPool, selectedLessonNumbers) {
+                activePool = filteredPool;
+                maxSelectedLesson = selectedLessonNumbers ? Math.max(...selectedLessonNumbers) : 999;
+                nounPool = activePool.filter(v => v.type === 'noun' && SentenceEngine.nomenTauglich(v));
+                verbPool = activePool.filter(v => v.type === 'verb' && SentenceEngine.verbTauglich(v));
+
+                if (nounPool.length < 2 || verbPool.length < 1) {
+                    alert("In den ausgewählten Lektionen gibt es noch zu wenige Substantive/Verben. Bitte wähle weitere Lektionen mit aus.");
+                    return;
+                }
+
+                startGame();
+            });
+        }
+
+        // Feste Reihenfolge Subjekt - Objekt - Prädikat ('pendel'). Das ist nicht
+        // die klassische lateinische Wortstellung, aber die Pendelmethode braucht
+        // einen festen Rahmen: Man pendelt von vorne nach hinten und wieder nach
+        // vorne. Mit gemischter Stellung lief der Schritt „jetzt nach hinten zum
+        // Prädikat“ ins Leere, weil das Prädikat irgendwo stand.
+        // Wer auf die Endungen statt auf die Stellung achten soll, spielt Via Rōmāna.
+        //
+        // SentenceEngine liefert eine Adverbiale als ein Token ("in villā"); hier wird
+        // sie in ihre Wörter zerlegt, weil in diesem Spiel jedes Wort einzeln
+        // angeklickt wird. Die Rolle bleibt dabei erhalten.
+        function buildRound() {
+            for (let versuch = 0; versuch < 10; versuch++) {
+                const satz = SentenceEngine.build({
+                    nounPool: nounPool,
+                    verbPool: verbPool,
+                    maxLesson: maxSelectedLesson,
+                    wordOrder: 'pendel'
+                });
+                if (!satz) continue;
+
+                const tokens = [];
+                satz.tokens.forEach(t => {
+                    t.text.split(' ').forEach(wort => {
+                        tokens.push({ text: wort, role: t.role, lemma: t.lemma });
+                    });
+                });
+
+                return {
+                    tokens: tokens,
+                    hadAdverbial: tokens.some(t => t.role === 'adv'),
+                    verbLemma: satz.verbLemma,
+                    explanation: satz.explanation
+                };
+            }
+            return null;
+        }
+
+        function startGame() {
+            roundIdx = 0;
+            correctCount = 0;
+            missedItems = [];
+            isReviewMode = false;
+
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('end-box').style.display = 'none';
+            document.getElementById('combat-box').style.display = 'flex';
+
+            showRound();
+        }
+
+        function showRound(forced) {
+            currentRound = forced || buildRound();
+            currentStep = 'sub';
+            roundHadError = false;
+            stepHadError = false;
+            foundSpanOrder = [];
+
+            document.getElementById('round-number').innerText = isReviewMode
+                ? `WIEDERHOLUNG ${reviewIdx + 1} VON ${reviewQueue.length}`
+                : `SATZ ${roundIdx + 1} VON ${totalRounds}`;
+            document.getElementById('progress-bar').style.width = (roundIdx / totalRounds * 100) + '%';
+
+            document.getElementById('geruest-text').innerText = '...';
+            document.getElementById('adverbial-note').style.display = 'none';
+
+            renderSentence();
+            updateStepPills();
+            updateInstruction();
+        }
+
+        function renderSentence() {
+            const box = document.getElementById('sentence-words');
+            box.innerHTML = '';
+            currentRound.tokens.forEach((token, idx) => {
+                const span = document.createElement('span');
+                span.className = 'latin-word';
+                span.dataset.idx = idx;
+                span.textContent = token.text;
+                span.addEventListener('click', () => handleWordClick(idx));
+                box.appendChild(span);
+            });
+            clearPendulumArrows();
+        }
+
+        function clearPendulumArrows() {
+            const svg = document.getElementById('pendulum-svg');
+            svg.querySelectorAll('.pendulum-arrow').forEach(el => el.remove());
+        }
+
+        function drawPendulumArrow(fromSpan, toSpan) {
+            const svg = document.getElementById('pendulum-svg');
+            const svgRect = svg.getBoundingClientRect();
+            const fromRect = fromSpan.getBoundingClientRect();
+            const toRect = toSpan.getBoundingClientRect();
+            const x1 = fromRect.left + fromRect.width / 2 - svgRect.left;
+            const y1 = fromRect.top - svgRect.top;
+            const x2 = toRect.left + toRect.width / 2 - svgRect.left;
+            const y2 = toRect.top - svgRect.top;
+            const midY = Math.min(y1, y2) - 22;
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', `M ${x1} ${y1} Q ${(x1 + x2) / 2} ${midY} ${x2} ${y2}`);
+            path.setAttribute('stroke', '#b8860b');
+            path.setAttribute('stroke-width', '2');
+            path.setAttribute('fill', 'none');
+            path.setAttribute('marker-end', 'url(#arrowhead)');
+            path.classList.add('pendulum-arrow');
+            svg.appendChild(path);
+        }
+
+        function updateInstruction() {
+            const texts = {
+                sub: "Schritt 1: Finde das Subjekt!",
+                praed: "Schritt 2: Jetzt nach hinten zum Prädikat!",
+                obj: "Schritt 3: Und zurück zum Objekt!",
+                dat: "Schritt 3: Und zurück zum Dativobjekt!"
+            };
+            document.getElementById('instruction-line').innerText = texts[currentStep] || '';
+        }
+
+        function updateStepPills() {
+            const order = ['sub', 'praed', currentStep === 'dat' ? 'dat' : 'obj', 'done'];
+            const objPill = document.getElementById('pill-obj');
+            objPill.innerText = currentStep === 'dat' || currentRound.tokens.some(t => t.role === 'dat') ? '3. Dativobjekt' : '3. Objekt';
+
+            const currentPos = order.indexOf(currentStep === 'dat' ? 'dat' : currentStep);
+            const ids = { sub: 'pill-sub', praed: 'pill-praed', obj: 'pill-obj', dat: 'pill-obj', done: 'pill-done' };
+            order.forEach((role, i) => {
+                const pill = document.getElementById(ids[role]);
+                pill.classList.remove('current', 'done');
+                if (i < currentPos) pill.classList.add('done');
+                else if (i === currentPos) pill.classList.add('current');
+            });
+        }
+
+        function updateGeruestDisplay(role, text) {
+            const labels = { sub: 'Subjekt', praed: 'Prädikat', obj: 'Objekt', dat: 'Dativobjekt' };
+            const el = document.getElementById('geruest-text');
+            const current = el.innerText === '...' ? '' : el.innerText;
+            const addition = `${text.toLowerCase()} (${labels[role]})`;
+            el.innerText = current ? `${current}  →  ${addition}` : addition;
+        }
+
+        function handleWordClick(idx) {
+            if (currentStep === 'done') return;
+            const token = currentRound.tokens[idx];
+            const span = document.querySelector(`.latin-word[data-idx="${idx}"]`);
+
+            if (token.role === currentStep) {
+                // Der Schritt gilt als gekonnt, wenn bis hierhin kein Fehlgriff kam.
+                // Erfasst wird pro Schritt, nicht pro Runde - sonst ginge unter, WELCHES
+                // Satzglied Schwierigkeiten macht.
+                const unlock = LudiProgress.recordCategoryAttempt(ROLE_CATEGORY[currentStep], !stepHadError);
+                if (unlock) AchievementToast.show(unlock);
+                stepHadError = false;
+
+                currentRound.tokens.forEach((t, i) => {
+                    if (t.role === currentStep) {
+                        const s = document.querySelector(`.latin-word[data-idx="${i}"]`);
+                        s.classList.add('found-' + currentStep);
+                        s.style.cursor = 'default';
+                    }
+                });
+                const fullText = currentRound.tokens.filter(t => t.role === currentStep).map(t => t.text).join(' ');
+                updateGeruestDisplay(currentStep, fullText);
+
+                if (foundSpanOrder.length > 0) {
+                    drawPendulumArrow(foundSpanOrder[foundSpanOrder.length - 1], span);
+                }
+                foundSpanOrder.push(span);
+
+                advanceStep();
+            } else {
+                roundHadError = true;
+                stepHadError = true;
+                span.classList.add('wrong-flash');
+                setTimeout(() => span.classList.remove('wrong-flash'), 400);
+            }
+        }
+
+        function advanceStep() {
+            if (currentStep === 'sub') {
+                currentStep = 'praed';
+                updateInstruction();
+                updateStepPills();
+            } else if (currentStep === 'praed') {
+                const hasAkkObj = currentRound.tokens.some(t => t.role === 'obj');
+                const hasDatObj = currentRound.tokens.some(t => t.role === 'dat');
+                if (hasAkkObj) { currentStep = 'obj'; updateInstruction(); updateStepPills(); }
+                else if (hasDatObj) { currentStep = 'dat'; updateInstruction(); updateStepPills(); }
+                else { finishRound(); }
+            } else if (currentStep === 'obj' || currentStep === 'dat') {
+                finishRound();
+            }
+        }
+
+        function finishRound() {
+            currentStep = 'done';
+
+            currentRound.tokens.forEach((token, idx) => {
+                if (token.role === 'adv') {
+                    const span = document.querySelector(`.latin-word[data-idx="${idx}"]`);
+                    span.classList.add('adverbial');
+                    span.style.cursor = 'default';
+                }
+            });
+
+            const advNote = document.getElementById('adverbial-note');
+            if (currentRound.hadAdverbial) {
+                advNote.innerText = `Die grau markierten Wörter bilden eine adverbiale Bestimmung - die ordnest du selbst sinnvoll in die Übersetzung ein.`;
+                advNote.style.display = 'block';
+            } else {
+                advNote.style.display = 'none';
+            }
+
+            updateStepPills();
+
+            const isCorrect = !roundHadError;
+            LudiProgress.recordVocabAttempt(currentRound.verbLemma, isCorrect);
+
+            const fbBox = document.getElementById('feedback-box');
+            const fbTitle = document.getElementById('fb-title');
+            const fbText = document.getElementById('fb-text');
+            fbBox.style.display = 'flex';
+
+            if (isCorrect) {
+                if (isReviewMode) reviewCorrectCount++; else correctCount++;
+                fbTitle.innerText = "⚖️ SAUBER GEPENDELT!";
+                fbTitle.style.color = "var(--richtig)";
+            } else {
+                if (!isReviewMode) missedItems.push(currentRound);
+                fbTitle.innerText = "🧭 NOCH NICHT GANZ...";
+                fbTitle.style.color = "var(--falsch)";
+            }
+            fbText.innerHTML = currentRound.explanation;
+        }
+
+        function onNextClicked() {
+            document.getElementById('feedback-box').style.display = 'none';
+
+            if (isReviewMode) {
+                reviewIdx++;
+                if (reviewIdx < reviewQueue.length) {
+                    showRound(reviewQueue[reviewIdx]);
+                } else {
+                    endReview();
+                }
+                return;
+            }
+
+            roundIdx++;
+            if (roundIdx < totalRounds) {
+                showRound();
+            } else {
+                endGame();
+            }
+        }
+
+        function endGame() {
+            document.getElementById('combat-box').style.display = 'none';
+            const endBox = document.getElementById('end-box');
+            const title = document.getElementById('end-title');
+            const msg = document.getElementById('end-msg');
+            endBox.style.display = 'block';
+
+            LudiProgress.saveGameResult('pendel', correctCount, totalRounds);
+
+            if (correctCount === totalRounds) {
+                title.innerText = "🏛️ MEISTER DER PENDELMETHODE!";
+                title.style.color = "var(--richtig)";
+            } else if (correctCount >= totalRounds * 0.6) {
+                title.innerText = "⚖️ GUT GEPENDELT!";
+                title.style.color = "var(--gold)";
+            } else {
+                title.innerText = "🧭 WEITER ÜBEN!";
+                title.style.color = "var(--falsch)";
+            }
+            msg.innerHTML = `Du hast <strong>${correctCount} von ${totalRounds}</strong> Sätzen ohne Fehlklick gependelt.`;
+
+            const reviewBtn = document.getElementById('btn-review');
+            if (missedItems.length > 0) {
+                reviewBtn.style.display = 'inline-block';
+                reviewBtn.innerText = `📚 ${missedItems.length} Satz/Sätze wiederholen`;
+            } else {
+                reviewBtn.style.display = 'none';
+            }
+            document.getElementById('box-summary').innerText = '';
+        }
+
+        function startReview() {
+            reviewQueue = [...missedItems];
+            reviewIdx = 0;
+            reviewCorrectCount = 0;
+            isReviewMode = true;
+
+            document.getElementById('end-box').style.display = 'none';
+            document.getElementById('combat-box').style.display = 'flex';
+
+            showRound(reviewQueue[reviewIdx]);
+        }
+
+        function endReview() {
+            isReviewMode = false;
+            document.getElementById('combat-box').style.display = 'none';
+            document.getElementById('end-box').style.display = 'block';
+            document.getElementById('btn-review').style.display = 'none';
+
+            document.getElementById('end-title').innerText = "📚 WIEDERHOLUNG GESCHAFFT!";
+            document.getElementById('end-title').style.color = "var(--pompeji)";
+            document.getElementById('end-msg').innerHTML = `Du hast alle <strong>${reviewQueue.length}</strong> zuvor fehlerhaften Sätze nochmal gependelt und dabei <strong>${reviewCorrectCount}</strong> davon jetzt fehlerfrei gelöst.`;
+        }
+
+        window.onload = function() {
+            document.getElementById('btn-start-game').addEventListener('click', promptLessonsAndStart);
+            document.getElementById('btn-next').addEventListener('click', onNextClicked);
+            document.getElementById('btn-review').addEventListener('click', startReview);
+            document.getElementById('btn-restart').addEventListener('click', promptLessonsAndStart);
+        };
+    </script>
+</body>
+</html>

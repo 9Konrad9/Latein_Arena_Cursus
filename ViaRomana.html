@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Via Rōmāna - Satzbau-Wegweiser</title>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        :root {
+            /* Das markierte Wort trägt die Farbe der Formenlehre-Säule: ein
+               echtes Blau, wie es der Auftragstext verspricht („blau markiert"),
+               und mit 6,4 auf dem Satzfeld lesbar. Vorher stand hier ein
+               Neon-Cyan aus dem alten Dunkel-Theme - auf hellem Pergament
+               kam es auf 1,7 und war praktisch unsichtbar. */
+            --markiert: var(--pillar-formenlehre);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+
+        body {
+            font-family: var(--font-body);
+            /* Kein eigener Hintergrund: Die Steinwand kommt aus theme.css. Hier
+               stand ein schwarzer Verlauf aus dem alten Theme - er hat die Wand
+               übermalt und die dunkle Tintenschrift auf Schwarz gesetzt. */
+            color: var(--ink);
+            /* 100vh zuerst als Rückfall: Safari vor 15.4 kennt dvh nicht und
+               würfe die einzige Höhenangabe sonst weg. */
+            height: 100vh;
+            height: 100dvh;
+            /* Schaltet das min-height: 100vh aus theme.css ab - es wuerde die
+               selbst bestimmte Hoehe ueberstimmen (min-height schlaegt height). */
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            overflow: hidden;
+        }
+
+        .header-area {
+            width: 100%; max-width: 800px;
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px; border-bottom: 2px solid var(--bronze); padding-bottom: 10px;
+        }
+        .title { font-family: var(--font-display); font-size: 1.6rem; color: var(--pompeji); text-transform: uppercase; letter-spacing: 2px; }
+        .task-instruction { font-size: 0.95rem; color: var(--ink-soft); font-style: italic; }
+
+        /* Der Satz-Bildschirm */
+        .sentence-box {
+            width: 100%; max-width: 800px;
+            background: var(--putz-hell);
+            border: 3px solid var(--wand-tief);
+            border-radius: 12px;
+            padding: 30px 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 8px 20px rgba(80, 60, 30, 0.22);
+            display: flex; justify-content: center; align-items: center;
+            min-height: 120px;
+        }
+
+        .sentence-text {
+            font-family: var(--font-display);
+            font-size: 2.2rem;
+            letter-spacing: 1px;
+            text-align: center;
+            line-height: 1.4;
+            /* Strikte Kleinschreibung für alle lateinischen Wörter */
+            text-transform: lowercase;
+        }
+
+        .highlight {
+            color: var(--markiert);
+            border-bottom: 4px dashed var(--markiert);
+            padding-bottom: 2px;
+            font-weight: bold;
+        }
+
+        /* Syntax-Buttons Grid (2x2) */
+        .syntax-grid {
+            width: 100%; max-width: 800px;
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;
+            flex-grow: 1; margin-bottom: 25px;
+        }
+
+        .btn-syntax {
+            background: var(--putz);
+            border: 2px solid var(--wand-tief);
+            color: var(--ink-soft);
+            font-size: 1.3rem;
+            font-family: var(--font-display);
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 5px 12px rgba(80, 60, 30, 0.12);
+            display: flex; align-items: center; justify-content: center;
+            touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+            transition: background 0.1s, border-color 0.1s;
+        }
+        .btn-syntax:not(:disabled):active {
+            background: var(--wand);
+            transform: translateY(2px);
+        }
+
+        /* Die römische Meilenstein-Straße */
+        .road-container {
+            width: 100%; max-width: 800px;
+            background: var(--putz-hell);
+            border-radius: 8px;
+            padding: 15px 10px;
+            border: 2px solid var(--gold);
+            position: relative; margin-top: auto;
+        }
+        .milestones-track {
+            display: flex; justify-content: space-between; align-items: center;
+            position: relative; background: var(--wand-tief); height: 6px; border-radius: 3px; margin: 15px 10px 5px 10px;
+        }
+        .stone {
+            width: 20px; height: 20px; background: var(--wand-tief);
+            border-radius: 50%; border: 2px solid var(--wand-tief);
+            position: relative; z-index: 2; transition: background 0.3s;
+        }
+        .stone.active { background: var(--gold); border-color: var(--bronze); box-shadow: 0 0 8px rgba(184,145,47,0.55); }
+        
+        /* Der Reisewagen (Carpentum) */
+        .carpentum {
+            position: absolute; top: -28px; left: 0;
+            font-size: 1.8rem; z-index: 3;
+            transition: left 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform: translateX(-50%);
+        }
+
+        /* Feedback Modal (Der Archivar) */
+        .modal-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(244, 236, 219, 0.97); display: none; align-items: center; justify-content: center; z-index: 100;
+        }
+        /* Der Kasten stand als dunkles Schiefergrau auf dem hellen Schleier, und
+           Titel wie Text trugen die dunklen Themefarben - beides war darauf
+           nicht zu lesen. */
+        .feedback-box {
+            background: var(--putz); width: 90%; max-width: 500px;
+            border: 4px solid var(--bronze); border-radius: 8px; padding: 25px;
+            text-align: center; color: var(--ink); box-shadow: var(--schatten-tief); }
+        .feedback-title { color: var(--pompeji); font-family: var(--font-display); font-size: 1.6rem; margin-bottom: 15px; }
+        .feedback-text { font-size: 1.1rem; line-height: 1.5; color: var(--ink-soft); margin-bottom: 25px; }
+        /* Die beiden Handlungsknöpfe trugen noch Gold mit schwarzer Schrift. Sie
+           tragen jetzt denselben Porphyr wie überall sonst - als background-color
+           plus background-image, nicht als Kurzschreibweise: Die würde das Bild
+           gleich wieder entfernen. */
+        .btn-close, .btn-main {
+            background-color: var(--pompeji);
+            background-image: url('assets/ui/porphyr.jpg');
+            background-size: 260px auto; background-position: center;
+            color: var(--marmor); border: 2px solid #6d1f1f;
+            font-family: var(--font-display); font-weight: bold;
+            border-radius: 30px; cursor: pointer; text-decoration: none;
+            text-transform: uppercase; box-shadow: var(--schatten);
+            touch-action: manipulation;
+        }
+        .btn-close { padding: 12px 35px; font-size: 1.1rem; }
+        .btn-main  { padding: 15px 40px; font-size: 1.2rem; margin-top: 20px; }
+        .btn-close:hover, .btn-main:hover { filter: brightness(1.14); }
+
+        /* Endbildschirm */
+        .end-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--wand); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 200; text-align: center;
+        }
+
+        .notice-box { max-width: 600px; }
+    </style>
+</head>
+<body>
+<a href="index.html" id="global-menu-btn" onclick="return confirm('Zurück zum Hauptmenü? Der aktuelle Fortschritt in dieser Runde geht verloren.');" title="Zurück zum Hauptmenü">🏠</a>
+
+    <!-- Reiner Zierrat: hinter dem Inhalt, ohne Klickfläche, auf schmalen Schirmen aus -->
+    <div class="saeule-links" aria-hidden="true"></div>
+    <div class="saeule-rechts" aria-hidden="true"></div>
+
+    <div class="end-screen" id="start-screen" style="display: flex; position: relative; height: auto; padding: 20px 15px;">
+        <h1 style="color: var(--pompeji); font-size: 2.2rem; margin-bottom: 15px; font-family: 'Georgia', serif; text-transform: uppercase;">Via Rōmāna</h1>
+        <div class="notice-box">
+            <h3>📜 Der Auftrag:</h3>
+            <p>Du siehst einen lateinischen Satz. Ein Wort ist <span style="color: var(--markiert); font-weight: bold;">blau markiert</span> - bestimme, welches Satzglied es ist: <strong>Subjekt</strong>, <strong>Prädikat</strong>, <strong>Akkusativ-Objekt</strong> oder <strong>Genitiv-Attribut</strong>.</p>
+            <p style="margin-top: 10px; font-weight: bold; color: var(--pompeji);">Achtung: Die Satzglieder werden ab und zu durcheinandergewürfelt! Verlass dich auf die Endung, nicht auf die Position im Satz.</p>
+            <p style="margin-top: 10px; font-size: 0.9rem; color: var(--ink-soft);">🔴🟡🟢 Auch hier gilt der Vokabelkasten: Wörter, die noch nicht sitzen, kommen häufiger dran. Am Ende kannst du falsch bestimmte Sätze direkt nochmal üben.</p>
+        </div>
+        <button class="btn-main" id="btn-start-game">Reise beginnen!</button>
+    </div>
+
+    <div id="game-area" style="display: none; width: 100%; flex-direction: column; align-items: center; height: 100%;">
+    <div class="header-area">
+        <div class="title">Via Rōmāna</div>
+        <div class="task-instruction" id="task-instruction">Bestimme das blau markierte Satzglied!</div>
+    </div>
+
+    <div class="sentence-box">
+        <div class="sentence-text" id="sentence-display">lade via...</div>
+    </div>
+
+    <div class="syntax-grid">
+        <button class="btn-syntax" id="btn-sub">Subjekt</button>
+        <button class="btn-syntax" id="btn-praed">Prädikat</button>
+        <button class="btn-syntax" id="btn-obj">Akkusativ-Objekt</button>
+        <button class="btn-syntax" id="btn-dat">Dativ-Objekt</button>
+        <button class="btn-syntax" id="btn-attr">Genitiv-Attribut</button>
+        <button class="btn-syntax" id="btn-abl">Ablativ (Handlungsträger)</button>
+        <button class="btn-syntax" id="btn-adv">Adverbiale Bestimmung (Ablativ)</button>
+    </div>
+
+    <div class="road-container">
+        <div style="font-size: 0.8rem; color: var(--ink-soft); text-align: center; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Weg nach Rom (Meilensteine)</div>
+        <div class="milestones-track">
+            <div class="carpentum" id="wagon">🐎</div>
+            <div class="stone active" id="st0"></div>
+            <div class="stone" id="st1"></div>
+            <div class="stone" id="st2"></div>
+            <div class="stone" id="st3"></div>
+            <div class="stone" id="st4"></div>
+            <div class="stone" id="st5"></div>
+            <div class="stone" id="st6"></div>
+            <div class="stone" id="st7"></div>
+            <div class="stone" id="st8"></div>
+            <div class="stone" id="st9"></div>
+            <div class="stone" id="st10"></div>
+        </div>
+    </div>
+    </div>
+
+    <div class="modal-overlay" id="feedback-modal">
+        <div class="feedback-box">
+            <div class="feedback-title" id="feedback-title">Wegweiser-Hinweis</div>
+            <div class="feedback-text" id="feedback-text">Fehlermeldung...</div>
+            <button class="btn-close" onclick="closeModal()">Weiter</button>
+        </div>
+    </div>
+
+    <div class="end-screen" id="end-screen">
+        <h1 style="color: var(--pompeji); font-size: 3rem; margin-bottom: 20px; font-family: 'Georgia', serif;" id="end-title">Roma erreicht!</h1>
+        <p style="font-size: 1.3rem; max-width: 600px; line-height: 1.5; margin-bottom: 15px; padding: 0 20px;" id="end-msg"></p>
+        <p id="box-summary" style="font-size: 1rem; color: var(--ink-soft); margin-bottom: 15px;"></p>
+        <button class="btn-main" id="btn-review" style="background: var(--falsch); color: #fff; display: none;">📚 Fehler wiederholen</button>
+        <button class="btn-main" onclick="location.reload()">Neue Reise starten</button>
+        <a href="index.html" class="btn-main" style="background: var(--wand-tief); color: var(--ink); font-size: 1rem;">Zurück zur Übersicht</a>
+    </div>
+
+    <script src="vocabulary.js"></script>
+    <script src="progress.js"></script>
+    <script src="achievementToast.js"></script>
+    <script src="lessonFilter.js"></script>
+    <script src="nounEngine.js"></script>
+    <script src="verbEngine.js"></script>
+    <script src="sentenceEngine.js"></script>
+    <script>
+        // Satzglied-Rolle → Achievement-Kategorie (siehe CATEGORY_META in progress.js)
+        const ROLE_CATEGORY = {
+            sub:   'Subjekt',
+            praed: 'Prädikat',
+            obj:   'Akkusativobjekt',
+            dat:   'Dativobjekt',
+            attr:  'Genitiv-Attribut',
+            abl:   'Handlungsträger',
+            adv:   'Adverbiale'
+        };
+
+        // Satzbau kommt vollständig aus SentenceEngine. Die Valenz jedes Verbs steht als
+        // Feld `valenz` in vocabulary.js - die früher hier hartkodierten Listen
+        // (trueIntransitive/dativeVerbs) erfassten nur 28 von 298 Verben und gaben allen
+        // übrigen ausnahmslos ein Akkusativobjekt.
+
+        let correctCount = 0;
+        const totalRounds = 10;
+        let currentRoundIdx = 0;
+        let currentWords = [];
+        let currentTargetIdx = -1;
+        let currentTargetRole = "";
+        let currentExplanation = "";
+        let currentTrackLemma = "";
+        let roundLocked = false;
+
+        let nounPool = [];
+        let verbPool = [];
+        let activePool = [];
+        let maxSelectedLesson = 0;
+
+        let missedItems = [];
+        let isReviewMode = false;
+        let reviewQueue = [];
+        let reviewIdx = 0;
+        let reviewCorrectCount = 0;
+
+        window.onload = function() {
+            document.getElementById('btn-start-game').addEventListener('click', promptLessonsAndStart);
+            document.getElementById('btn-sub').onclick = () => checkAnswer("sub");
+            document.getElementById('btn-praed').onclick = () => checkAnswer("praed");
+            document.getElementById('btn-obj').onclick = () => checkAnswer("obj");
+            document.getElementById('btn-dat').onclick = () => checkAnswer("dat");
+            document.getElementById('btn-attr').onclick = () => checkAnswer("attr");
+            document.getElementById('btn-abl').onclick = () => checkAnswer("abl");
+            document.getElementById('btn-adv').onclick = () => checkAnswer("adv");
+            document.getElementById('btn-review').addEventListener('click', startReview);
+        };
+
+        function promptLessonsAndStart() {
+            if (typeof globalVocabularyPool === 'undefined') {
+                alert("Fehler: vocabulary.js nicht gefunden!"); return;
+            }
+            LessonFilter.show(globalVocabularyPool, function(filteredPool, selectedLessonNumbers) {
+                activePool = filteredPool;
+                maxSelectedLesson = selectedLessonNumbers ? Math.max(...selectedLessonNumbers) : 999;
+                startGame();
+            });
+        }
+
+        function startGame() {
+            nounPool = activePool.filter(v => v.type === 'noun' && SentenceEngine.nomenTauglich(v));
+            verbPool = activePool.filter(v => v.type === 'verb' && SentenceEngine.verbTauglich(v));
+
+            if (nounPool.length < 3 || verbPool.length < 1) {
+                alert("In den ausgewählten Lektionen gibt es noch zu wenige Nomen/Verben für dieses Spiel. Bitte wähle weitere Lektionen mit aus.");
+                return;
+            }
+
+            correctCount = 0;
+            currentRoundIdx = 0;
+            missedItems = [];
+            isReviewMode = false;
+
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('end-screen').style.display = 'none';
+            document.getElementById('game-area').style.display = 'flex';
+
+            resetWagon();
+            nextQuestion();
+        }
+
+        function resetWagon() {
+            document.getElementById('wagon').style.left = '0%';
+            for (let i = 0; i <= totalRounds; i++) {
+                const stone = document.getElementById(`st${i}`);
+                if (stone) stone.classList.toggle('active', i === 0);
+            }
+        }
+
+        // Baut eine Runde und würfelt aus, welches Satzglied bestimmt werden soll.
+        // 'natural' = lateinische Grundstellung; das Genitiv-Attribut steht dadurch
+        // direkt hinter seinem Bezugswort, worauf sich auch die Erklärung bezieht.
+        function buildRound(forced) {
+            if (forced) return forced;
+
+            for (let versuch = 0; versuch < 10; versuch++) {
+                const satz = SentenceEngine.build({
+                    nounPool: nounPool,
+                    verbPool: verbPool,
+                    maxLesson: maxSelectedLesson,
+                    wordOrder: 'natural'
+                });
+                if (!satz) continue;
+
+                const words = satz.tokens.map(t => ({ w: t.text, role: t.role, lemma: t.lemma, exp: t.exp }));
+                const targetIdx = Math.floor(Math.random() * words.length);
+                return {
+                    words: words,
+                    targetIdx: targetIdx,
+                    role: words[targetIdx].role,
+                    explanation: words[targetIdx].exp,
+                    trackLemma: words[targetIdx].lemma
+                };
+            }
+            return null;
+        }
+
+        function nextQuestion(forced) {
+            roundLocked = false;
+            const round = buildRound(forced);
+            currentWords = round.words;
+            currentTargetIdx = round.targetIdx;
+            currentTargetRole = round.role;
+            currentExplanation = round.explanation;
+            currentTrackLemma = round.trackLemma;
+
+            document.getElementById('task-instruction').innerText = isReviewMode
+                ? `Wiederholung ${reviewIdx + 1} von ${reviewQueue.length}`
+                : `Satz ${currentRoundIdx + 1} von ${totalRounds} - bestimme das markierte Satzglied!`;
+
+            let htmlOutput = "";
+            currentWords.forEach((item, idx) => {
+                let lowWord = item.w.toLowerCase();
+                htmlOutput += (idx === currentTargetIdx) ? `<span class="highlight">${lowWord}</span> ` : `${lowWord} `;
+            });
+            document.getElementById('sentence-display').innerHTML = htmlOutput.trim() + ".";
+
+            for (const id of ['btn-sub', 'btn-praed', 'btn-obj', 'btn-dat', 'btn-attr', 'btn-abl', 'btn-adv']) {
+                document.getElementById(id).disabled = false;
+            }
+        }
+
+        function checkAnswer(chosenRole) {
+            if (roundLocked) return;
+            roundLocked = true;
+            for (const id of ['btn-sub', 'btn-praed', 'btn-obj', 'btn-dat', 'btn-attr', 'btn-abl', 'btn-adv']) {
+                document.getElementById(id).disabled = true;
+            }
+
+            const isCorrect = (chosenRole === currentTargetRole);
+            LudiProgress.recordVocabAttempt(currentTrackLemma, isCorrect);
+
+            // Achievement-Kategorie ist das abgefragte Satzglied selbst.
+            const unlock = LudiProgress.recordCategoryAttempt(ROLE_CATEGORY[currentTargetRole], isCorrect);
+            if (unlock) AchievementToast.show(unlock);
+
+            if (isReviewMode) {
+                if (isCorrect) reviewCorrectCount++;
+            } else {
+                if (isCorrect) { correctCount++; updateWagon(); }
+                else { missedItems.push({ words: currentWords, targetIdx: currentTargetIdx, role: currentTargetRole, explanation: currentExplanation, trackLemma: currentTrackLemma }); }
+            }
+
+            // Artikel steht mit im Namen, weil die Rollen unterschiedliche Genera haben.
+            const roleNames = {
+                sub:   "das Subjekt",
+                praed: "das Prädikat",
+                obj:   "das Akkusativobjekt",
+                dat:   "das Dativobjekt",
+                attr:  "das Genitiv-Attribut",
+                abl:   "der Handlungsträger im Ablativ",
+                adv:   "die adverbiale Bestimmung"
+            };
+            const title = document.getElementById('feedback-title');
+            if (isCorrect) {
+                title.innerText = "✅ Richtig!";
+            } else {
+                title.innerText = "🧭 Nicht ganz...";
+            }
+            showModal(`Das war ${isCorrect ? "" : "nicht "}${roleNames[currentTargetRole]}.\n\n${currentExplanation}`);
+        }
+
+        function updateWagon() {
+            let percentage = (correctCount / totalRounds) * 100;
+            document.getElementById('wagon').style.left = `${percentage}%`;
+            for (let i = 0; i <= totalRounds; i++) {
+                const stone = document.getElementById(`st${i}`);
+                if (stone) stone.classList.toggle('active', i <= correctCount);
+            }
+        }
+
+        function showModal(text) {
+            document.getElementById('feedback-text').innerText = text;
+            document.getElementById('feedback-modal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('feedback-modal').style.display = 'none';
+
+            if (isReviewMode) {
+                reviewIdx++;
+                if (reviewIdx < reviewQueue.length) {
+                    nextQuestion(reviewQueue[reviewIdx]);
+                } else {
+                    endReview();
+                }
+                return;
+            }
+
+            currentRoundIdx++;
+            if (currentRoundIdx < totalRounds) {
+                nextQuestion();
+            } else {
+                endGame();
+            }
+        }
+
+        function endGame() {
+            document.getElementById('game-area').style.display = 'none';
+            document.getElementById('end-screen').style.display = 'flex';
+
+            LudiProgress.saveGameResult('viaromana', correctCount, totalRounds);
+
+            document.getElementById('end-title').innerText = correctCount === totalRounds ? "Roma erreicht!" : "Reise unterbrochen";
+            document.getElementById('end-msg').innerHTML = `Du hast <strong>${correctCount} von ${totalRounds}</strong> Sätzen richtig analysiert.`;
+
+            const summary = LudiProgress.getBoxSummary([...nounPool, ...verbPool]);
+            document.getElementById('box-summary').innerText =
+                `Dein Vokabelkasten (${nounPool.length + verbPool.length} Wörter in dieser Auswahl): 🔴 ${summary.red}  🟡 ${summary.yellow}  🟢 ${summary.green}`;
+
+            const reviewBtn = document.getElementById('btn-review');
+            if (missedItems.length > 0) {
+                reviewBtn.style.display = 'inline-block';
+                reviewBtn.innerText = `📚 ${missedItems.length} falsche Antwort(en) wiederholen`;
+            } else {
+                reviewBtn.style.display = 'none';
+            }
+        }
+
+        function startReview() {
+            reviewQueue = [...missedItems].sort(() => Math.random() - 0.5);
+            reviewIdx = 0;
+            reviewCorrectCount = 0;
+            isReviewMode = true;
+
+            document.getElementById('end-screen').style.display = 'none';
+            document.getElementById('game-area').style.display = 'flex';
+
+            nextQuestion(reviewQueue[reviewIdx]);
+        }
+
+        function endReview() {
+            isReviewMode = false;
+            document.getElementById('game-area').style.display = 'none';
+            document.getElementById('end-screen').style.display = 'flex';
+            document.getElementById('btn-review').style.display = 'none';
+            document.getElementById('box-summary').innerText = '';
+
+            document.getElementById('end-title').innerText = "Wiederholung geschafft!";
+            document.getElementById('end-msg').innerHTML = `Du hast alle <strong>${reviewQueue.length}</strong> zuvor falschen Sätze nochmal analysiert und dabei <strong>${reviewCorrectCount}</strong> davon jetzt richtig bestimmt.`;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Formen-Kastell - Die Formen-Abwehr</title>
+    <!-- Zentrale Vokabeldatenbank und Engines einbinden -->
+    <script src="vocabulary.js"></script>
+    <script src="progress.js"></script>
+    <script src="achievementToast.js"></script>
+    <script src="lessonFilter.js"></script>
+    <script src="nounEngine.js"></script>
+    <script src="verbEngine.js"></script>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--wand);
+            color: var(--ink);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 15px;
+        }
+
+        h1 {
+            color: var(--pompeji);
+            font-family: var(--font-display);
+            text-transform: uppercase;
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+            text-align: center;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 4px rgba(80, 60, 30, 0.22);
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 700px;
+            background: var(--putz);
+            border: 4px solid var(--bronze);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 25px rgba(80, 60, 30, 0.22);
+            position: relative;
+            min-height: 480px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .start-screen { text-align: center; padding: 10px; }
+
+        .notice-box { margin: 20px 0; }
+
+
+        .battlefield {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            background-image: url('assets/kastell/battlefield_bg.jpg');
+            background-size: cover;
+            background-position: center bottom;
+            border: 4px solid var(--wand-tief);
+            border-radius: 8px;
+            height: 220px;
+            padding: 10px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 20px rgba(80, 60, 30, 0.22);
+            margin-bottom: 15px;
+        }
+
+        .catapult-wrapper { width: 150px; height: 140px; position: relative; margin-bottom: 0; flex-shrink: 0; z-index: 2; }
+
+        .castle-wall-graphics {
+            height: 100%;
+            width: auto;
+            object-fit: contain;
+            object-position: bottom;
+            flex-shrink: 0;
+            z-index: 2;
+            filter: drop-shadow(-4px 0 6px rgba(80, 60, 30, 0.12));
+        }
+
+        .stone-path {
+            position: absolute; left: 90px; bottom: 60px;
+            width: calc(100% - 220px);
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        .attack-stone {
+            background-image: url('assets/kastell/stone.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            width: 130px;
+            height: 130px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-size: 1.35rem;
+            font-weight: bold;
+            color: #3a2f22;
+            text-align: center;
+            padding: 0 20px;
+            box-sizing: border-box;
+            z-index: 1;
+            animation: flyAnimation 1.5s ease-out;
+        }
+
+        @keyframes flyAnimation {
+            0% { transform: translate(-160px, 30px) scale(0.28); opacity: 0.7; }
+            60% { opacity: 1; }
+            100% { transform: translate(0, 0) scale(1); opacity: 1; }
+        }
+
+        .health-bar-container {
+            width: 100%; background: #cc0000; height: 12px;
+            border-radius: 6px; overflow: hidden; margin-bottom: 15px; border: 1px solid var(--wand-tief); color: #fff; }
+        .health-bar {
+            width: 100%; background: var(--richtig); height: 100%; transition: width 0.4s ease; color: #fff; }
+
+        .gram-clue {
+            text-align: center; font-size: 1.1rem; color: var(--pompeji); margin-bottom: 15px; font-weight: bold;
+        }
+
+        .options-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; flex-grow: 1;
+        }
+
+        .shield-btn {
+            background: linear-gradient(#800000, #5a0000);
+            border: 3px solid var(--gold); color: var(--marmor);
+            padding: 15px 5px; font-size: 1.1rem; font-weight: bold; font-family: var(--font-body);
+            border-radius: 8px; cursor: pointer; box-shadow: 0 4px 8px rgba(80, 60, 30, 0.12);
+            transition: background 0.1s; text-shadow: 1px 1px 3px rgba(80, 60, 30, 0.22);
+            text-align: center; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+        }
+        .shield-btn:not(:disabled):active { background: #4a0000; color: #fff; }
+
+        .feedback-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(244, 236, 219, 0.96); border-radius: 12px;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            padding: 20px; text-align: center; z-index: 10;
+        }
+        .feedback-title { font-family: var(--font-display); font-size: 2rem; margin-bottom: 10px; }
+        .feedback-explanation { font-size: 1.2rem; line-height: 1.5; margin-bottom: 25px; max-width: 500px; }
+        
+        .start-btn { font-size: 1.3rem; }
+
+        .correct { background: var(--richtig) !important; border-color: #fff !important; color: #fff; }
+        .wrong { background: var(--falsch) !important; border-color: #fff !important; color: #fff; }
+        /* Emblem über der Überschrift, nach dem Vorbild der Trophäenseite:
+           ein Gegenstand, der zum Spiel gehört, statt eines Emojis. */
+        /* Das Feldzeichen ist 1:3 - als Emblem braucht es mehr Höhe als ein
+           breites Motiv, sonst bleibt vom Adler oben nichts Erkennbares. */
+        .emblem { display: block; height: 104px; margin: 0 auto 2px; }
+        @media (max-width: 520px) { .emblem { height: 78px; } }
+
+    </style>
+</head>
+<body>
+<a href="index.html" id="global-menu-btn" onclick="return confirm('Zurück zum Hauptmenü? Der aktuelle Fortschritt in dieser Runde geht verloren.');" title="Zurück zum Hauptmenü">🏠</a>
+
+    <!-- Reiner Zierrat: hinter dem Inhalt, ohne Klickfläche, auf schmalen Schirmen aus -->
+    <div class="saeule-links" aria-hidden="true"></div>
+    <div class="saeule-rechts" aria-hidden="true"></div>
+
+    <img class="emblem" src="assets/ui/aquila.png" alt="" aria-hidden="true">
+    <h1>Formen-Kastell</h1>
+    <div style="font-family: var(--font-display); font-style: italic; color: var(--ink-soft); margin-bottom: 15px; text-align: center;">
+        Mission: Die Formen-Abwehr
+    </div>
+
+    <div class="trenner" aria-hidden="true"></div>
+
+    <div class="game-container">
+        
+        <!-- ANLEITUNG VOR DEM SPIELSTART -->
+        <div id="start-screen" class="start-screen">
+            <h2 style="font-family: var(--font-display); color: var(--ink);">Zenturio, an die Mauern!</h2>
+            <div class="notice-box">
+                <h3>📜 Modus 1: Substantiv-Formen</h3>
+                <p>Bei dieser Verteidigung dreht sich alles um <strong>Substantive</strong>.</p>
+                <p style="margin-top: 10px;">Die feindlichen Katapulte werfen deklinierte Substantivformen auf unsere Mauern (z. B. <em>rēgum</em>). Bestimme Kasus <strong>und</strong> Numerus (z. B. <em>Genitiv Plural</em>).</p>
+                <p style="margin-top: 10px; font-size: 0.9rem; color: var(--ink-soft);">🔴🟡🟢 Jedes Substantiv hat eine Ampel wie im Vokabelkasten: Rot = wird häufig abgefragt, Grün = sitzt schon gut und taucht seltener auf. Bei Fehlern springt ein Wort sofort zurück auf Rot.</p>
+            </div>
+            <button class="start-btn" id="btn-start-noun">Substantiv-Formen üben</button>
+
+            <div class="notice-box" style="margin-top: 25px;">
+                <h3>📜 Modus 2: Verb-Formen</h3>
+                <p>Bei dieser Verteidigung dreht sich alles um <strong>Verben</strong>.</p>
+                <p style="margin-top: 10px;">Die feindlichen Katapulte werfen konjugierte Verbformen auf unsere Mauern. Bestimme Person <strong>und</strong> Numerus (z. B. <em>3. Person Plural</em>) – sobald du weitere Lektionen ausgewählt hast, kommt zusätzlich das <strong>Tempus</strong> mit ins Spiel (z. B. <em>3. Person Plural, Perfekt</em>).</p>
+                <p style="margin-top: 10px; font-size: 0.9rem; color: var(--ink-soft);">Welche Tempora schon auftauchen, richtet sich automatisch nach deiner Lektionsauswahl: Präsens von Anfang an, Perfekt ab Lektion 10, Imperfekt ab Lektion 12, Futur I ab Lektion 13, Plusquamperfekt ab Lektion 14.</p>
+            </div>
+            <button class="start-btn" id="btn-start-verb">Verb-Formen üben</button>
+        </div>
+
+        <!-- Didaktische Feedbackbox -->
+        <div class="feedback-overlay" id="feedback-box">
+            <div class="feedback-title" id="fb-title">Abgewehrt!</div>
+            <div class="feedback-explanation" id="fb-text">Erklärung...</div>
+            <button class="start-btn" style="font-size:1.1rem; padding:10px 30px;" id="btn-next-wave">Nächster Angriff</button>
+        </div>
+
+        <!-- Haupt-Spielfeld -->
+        <div id="combat-box" style="display: none; flex-grow: 1; flex-direction: column;">
+            <div style="font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; color: var(--ink-soft); text-align: center;">MAUERSTÄRKE DES KASTELLS</div>
+            <div class="health-bar-container">
+                <div class="health-bar" id="wall-health"></div>
+            </div>
+
+            <div class="battlefield">
+                <div class="catapult-wrapper">
+                    <img src="assets/kastell/catapult.png" alt="Katapult" style="width:100%; height:100%; object-fit:contain; transform:scaleX(-1);">
+                </div>
+                <div class="stone-path">
+                    <div class="attack-stone" id="target-verb">---</div>
+                </div>
+                <img src="assets/kastell/wall.png" alt="Kastell-Mauer" class="castle-wall-graphics">
+            </div>
+
+            <div style="text-align:center; font-family: var(--font-display); font-size: 1.15rem; color: var(--pompeji); margin-bottom: 4px;" id="question-prompt">Bestimme die Form.</div>
+            <div class="gram-clue" id="target-clue">Welle 1 von 10</div>
+
+            <div class="options-grid">
+                <button class="shield-btn" id="shield0">-</button>
+                <button class="shield-btn" id="shield1">-</button>
+                <button class="shield-btn" id="shield2">-</button>
+                <button class="shield-btn" id="shield3">-</button>
+            </div>
+        </div>
+
+        <!-- Endbildschirm -->
+        <div id="end-box" style="display: none; text-align: center; padding: 20px 10px; margin: auto;">
+            <h2 id="end-title" style="font-size: 2.2rem; color: var(--pompeji); font-family: var(--font-display); margin-bottom: 20px;">SIEG!</h2>
+            <p id="end-msg" style="margin: 20px 0; font-size: 1.2rem; line-height: 1.6;"></p>
+            <p id="box-summary" style="margin: 10px 0 20px; font-size: 1rem; color: var(--ink-soft);"></p>
+            <button class="start-btn" style="font-size:1.1rem; padding:10px 25px; background: var(--falsch); color:#fff; display:none; margin-bottom: 12px;" id="btn-review">📚 Fehler wiederholen</button>
+            <br>
+            <button class="start-btn" style="font-size:1.1rem; padding:12px 30px;" id="btn-restart">Neue Kohorte abwehren</button>
+            <br>
+            <a href="index.html" class="start-btn" style="text-decoration: none; display: inline-block; font-size:1rem; background: var(--wand-tief); color: var(--ink); margin-top: 15px;">Zurück zum Menü</a>
+        </div>
+    </div>
+
+    <script>
+        const persons = [
+            "1. Person Singular", "2. Person Singular", "3. Person Singular",
+            "1. Person Plural", "2. Person Plural", "3. Person Plural"
+        ];
+        const CASE_LABELS = { Nom: 'Nominativ', Gen: 'Genitiv', Dat: 'Dativ', Akk: 'Akkusativ', Abl: 'Ablativ' };
+        const CASE_KEYS = ['Nom', 'Gen', 'Dat', 'Akk', 'Abl'];
+
+        // Frequenz-Gewichtung der Verbformen: häufige Grundformen tauchen deutlich
+        // öfter auf als seltene/periphrastische Formen. Bezugsgröße 1 = "normal".
+        const FORM_WEIGHT = {
+            hoch: 3,       // Präsens Aktiv/Passiv, Perfekt Aktiv
+            mittel: 2,     // Imperfekt/Futur, Imperativ, Infinitiv Präsens, Perfekt Passiv
+            niedrig: 1,    // Plusquamperfekt, PPA, Konjunktiv Präs./Impf./Perf./Plusquampf. Aktiv, Infinitiv Perfekt Aktiv
+            selten: 0.5    // Konjunktiv Perfekt/Plusquamperfekt Passiv, Infinitiv Perfekt Passiv, Gerundium, Gerundivum
+        };
+
+        let wallHealth = 100;
+        let currentWaveIdx = 0;
+        const totalWaves = 10;
+        let currentCorrectAnswer = "";
+        let currentTargetObj = null;
+        let currentRound = null;
+        let roundLocked = false;
+
+        let targetPool = [];
+        let gameMode = 'noun'; // 'noun' | 'verb'
+        let activePool = [];
+        let maxSelectedLesson = 0; // höchste gewählte Lektion, für die Tempus-Freischaltung im Verb-Modus
+
+        // Wiederholungsrunde für falsch beantwortete Fragen
+        let missedItems = [];
+        let isReviewMode = false;
+        let reviewQueue = [];
+        let reviewIdx = 0;
+        let reviewCorrectCount = 0;
+
+        function promptLessonsAndStart(mode) {
+            if (mode) gameMode = mode;
+            if (typeof globalVocabularyPool === 'undefined') {
+                alert("Fehler: vocabulary.js nicht gefunden!"); return;
+            }
+            LessonFilter.show(globalVocabularyPool, function(filteredPool, selectedLessonNumbers) {
+                activePool = filteredPool;
+                maxSelectedLesson = selectedLessonNumbers ? Math.max(...selectedLessonNumbers) : 999;
+                startDefense();
+            });
+        }
+
+        window.onload = function() {
+            // Ausfallsicheres Event-Binding für iOS
+            document.getElementById('btn-start-noun').addEventListener('click', function() { promptLessonsAndStart('noun'); });
+            document.getElementById('btn-start-verb').addEventListener('click', function() { promptLessonsAndStart('verb'); });
+            document.getElementById('btn-next-wave').addEventListener('click', loadNextWave);
+            document.getElementById('btn-restart').addEventListener('click', function() { promptLessonsAndStart(); });
+            document.getElementById('btn-review').addEventListener('click', startReview);
+            
+            for(let i=0; i<4; i++) {
+                document.getElementById('shield' + i).addEventListener('click', function() {
+                    selectShield(i);
+                });
+            }
+        };
+
+        // Gemeinsame Rundenlogik: aus einer Liste von {form, label}-"Slots" eine Frage bauen.
+        // Wird sowohl vom Substantiv- als auch vom Verb-Modus genutzt.
+        // Zielauswahl ist gewichtet (Slots ohne "weight"-Feld gelten als Gewicht 1) -
+        // dadurch tauchen häufige Formen (Präsens etc.) öfter auf als seltene
+        // (Gerundium, Konjunktiv Perfekt Passiv etc.), ohne dass seltene Formen
+        // komplett fehlen.
+        function buildRoundFromSlots(slots) {
+            const weights = slots.map(s => s.weight || 1);
+            const totalWeight = weights.reduce((a, b) => a + b, 0);
+            let r = Math.random() * totalWeight;
+            let targetIdx = slots.length - 1;
+            for (let i = 0; i < slots.length; i++) {
+                r -= weights[i];
+                if (r <= 0) { targetIdx = i; break; }
+            }
+            const target = slots[targetIdx];
+
+            // Distraktoren: andere Formen UND andere Label (keine homonymen Formen als "falsch" anbieten,
+            // z.B. Nom./Akk. Plural bei Neutra sind identisch und daher beide korrekt)
+            let candidates = slots.filter((s, i) => i !== targetIdx && s.form !== target.form && s.label !== target.label);
+            candidates = candidates.sort(() => Math.random() - 0.5);
+
+            const seenLabels = new Set([target.label]);
+            const distractors = [];
+            for (const c of candidates) {
+                if (seenLabels.has(c.label)) continue;
+                seenLabels.add(c.label);
+                distractors.push(c.label);
+                if (distractors.length === 3) break;
+            }
+            // Sicherheitsnetz, falls ein sehr kleines Paradigma nicht genug eindeutige Distraktoren hergibt
+            while (distractors.length < 3) {
+                distractors.push((distractors[distractors.length - 1] || target.label) + '\u200b');
+            }
+
+            return {
+                targetForm: target.form,
+                correctLabel: target.label,
+                options: [target.label, ...distractors].sort(() => Math.random() - 0.5)
+            };
+        }
+
+        /* Nur Kasus und Numeri anbieten, die bis zur gewählten Lektion auch
+           drangekommen sind - die Verbseite tut das über VerbEngine längst, die
+           Nomenseite bot bisher stur alle fünf Kasus an. Weil die Distraktoren
+           aus denselben Feldern kommen, verschwinden die zu frühen Formen damit
+           auch aus den falschen Antwortmöglichkeiten. */
+        function buildNounRound(nounObj) {
+            const table = NounEngine.decline(nounObj);
+            const erlaubteKasus = NounEngine.getKnownCases(maxSelectedLesson);
+            const numeri = NounEngine.isPluralKnown(maxSelectedLesson) ? ['Sg', 'Pl'] : ['Sg'];
+            const slots = [];
+            CASE_KEYS.forEach(c => {
+                const caseKey = { Nom: 'nom', Gen: 'gen', Dat: 'dat', Akk: 'akk', Abl: 'abl' }[c];
+                if (erlaubteKasus.indexOf(caseKey) === -1) return;
+                numeri.forEach(n => {
+                    const numKey = n === 'Sg' ? 'sg' : 'pl';
+                    const form = table[numKey] ? table[numKey][caseKey] : null;
+                    if (form) {
+                        slots.push({ form: form, label: CASE_LABELS[c] + ' ' + (n === 'Sg' ? 'Singular' : 'Plural') });
+                    }
+                });
+            });
+            return buildRoundFromSlots(slots);
+        }
+
+        function buildVerbRound(verbObj) {
+            const knownCombos = VerbEngine.getKnownCombinations(maxSelectedLesson); // [{tempus, genus}, ...]
+            const knownTempora = [...new Set(knownCombos.map(c => c.tempus))];
+            const passivKnown = knownCombos.some(c => c.genus === 'Passiv') && VerbEngine.isGenusApplicable(verbObj, 'Passiv');
+            const showTempus = knownTempora.length > 1; // Solange nur Präsens bekannt ist, Tempus nicht extra nennen
+            const slots = [];
+
+            // --- Indikativ Aktiv/Passiv (5 Tempora) ---
+            knownCombos.forEach(({ tempus, genus }) => {
+                if (genus === 'Passiv' && !passivKnown) return;
+                if (!VerbEngine.isGenusApplicable(verbObj, genus)) return;
+                if ((tempus === 'Perfekt' || tempus === 'Plusquamperfekt') && genus === 'Aktiv' && !verbObj.perfect) return;
+                if ((tempus === 'Perfekt' || tempus === 'Plusquamperfekt') && genus === 'Passiv' && !verbObj.ppp && verbObj.gram_class !== 'Deponens' && verbObj.latin !== 'fierī') return;
+                let forms;
+                try { forms = VerbEngine.getFormsForTempus(verbObj, tempus, genus); } catch (e) { return; }
+                const tLabel = tempus === 'FuturI' ? 'Futur I' : tempus;
+                const weight = (tempus === 'Präsens' || (tempus === 'Perfekt' && genus === 'Aktiv'))
+                    ? FORM_WEIGHT.hoch
+                    : (tempus === 'Plusquamperfekt') ? FORM_WEIGHT.niedrig : FORM_WEIGHT.mittel;
+                forms.forEach((form, i) => {
+                    let label = persons[i];
+                    if (showTempus) label += ', ' + tLabel;
+                    if (passivKnown && genus === 'Passiv') label += ', Passiv';
+                    slots.push({ form, label, weight });
+                });
+            });
+
+            // --- Imperativ ---
+            if (VerbEngine.isImperativeKnown(maxSelectedLesson) && VerbEngine.isImperativeApplicable(verbObj)) {
+                const imp = VerbEngine.getImperative(verbObj);
+                slots.push({ form: imp.sg, label: '2. Person Singular (Imperativ)', weight: FORM_WEIGHT.mittel });
+                slots.push({ form: imp.pl, label: '2. Person Plural (Imperativ)', weight: FORM_WEIGHT.mittel });
+            }
+
+            // --- Infinitive (4 Kombinationen) ---
+            [['Präsens', 'Aktiv', FORM_WEIGHT.mittel], ['Perfekt', 'Aktiv', FORM_WEIGHT.niedrig],
+             ['Präsens', 'Passiv', FORM_WEIGHT.mittel], ['Perfekt', 'Passiv', FORM_WEIGHT.selten]].forEach(([t, g, w]) => {
+                if (!VerbEngine.isInfinitiveKnown(t, g, maxSelectedLesson)) return;
+                if (!VerbEngine.isInfinitiveApplicable(verbObj, t, g)) return;
+                const form = VerbEngine.getInfinitive(verbObj, t, g);
+                slots.push({ form, label: `Infinitiv ${t} ${g}`, weight: w });
+            });
+
+            // --- PPA (vollständige Deklination) ---
+            if (VerbEngine.isPPAKnown(maxSelectedLesson) && VerbEngine.isPPAApplicable(verbObj)) {
+                const d = VerbEngine.getPPADeclension(verbObj);
+                const ppaSlots = [
+                    [d.sg.nom, 'PPA Nominativ Singular'], [d.sg.gen, 'PPA Genitiv Singular'],
+                    [d.sg.dat, 'PPA Dativ Singular'], [d.sg.akkM, 'PPA Akkusativ Singular (m./f.)'],
+                    [d.sg.abl, 'PPA Ablativ Singular'], [d.pl.nomM, 'PPA Nominativ Plural (m./f.)'],
+                    [d.pl.gen, 'PPA Genitiv Plural'], [d.pl.dat, 'PPA Dativ Plural'],
+                    [d.pl.akkM, 'PPA Akkusativ Plural (m./f.)'], [d.pl.abl, 'PPA Ablativ Plural']
+                ];
+                ppaSlots.forEach(([form, label]) => slots.push({ form, label, weight: FORM_WEIGHT.niedrig }));
+            }
+
+            // --- Konjunktiv (4 Tempora x Aktiv/Passiv) ---
+            if (VerbEngine.isKonjunktivKnown('Präsens', maxSelectedLesson) || VerbEngine.isKonjunktivKnown('Imperfekt', maxSelectedLesson)) {
+                ['Präsens', 'Imperfekt', 'Perfekt', 'Plusquamperfekt'].forEach(t => {
+                    if (!VerbEngine.isKonjunktivKnown(t, maxSelectedLesson)) return;
+                    ['Aktiv', 'Passiv'].forEach(g => {
+                        if (g === 'Passiv' && !passivKnown) return;
+                        if (!VerbEngine.isGenusApplicable(verbObj, g)) return;
+                        if ((t === 'Perfekt' || t === 'Plusquamperfekt') && g === 'Aktiv' && !verbObj.perfect) return;
+                        if ((t === 'Perfekt' || t === 'Plusquamperfekt') && g === 'Passiv' && !verbObj.ppp && verbObj.gram_class !== 'Deponens' && verbObj.latin !== 'fierī') return;
+                        let forms;
+                        try { forms = VerbEngine.getSubjunctiveForms(verbObj, t, g); } catch (e) { return; }
+                        const tLabel = t === 'FuturI' ? 'Futur I' : t;
+                        const weight = (t === 'Perfekt' || t === 'Plusquamperfekt') && g === 'Passiv' ? FORM_WEIGHT.selten : FORM_WEIGHT.niedrig;
+                        forms.forEach((form, i) => {
+                            let label = `Konjunktiv, ${persons[i]}, ${tLabel}`;
+                            if (passivKnown && g === 'Passiv') label += ', Passiv';
+                            slots.push({ form, label, weight });
+                        });
+                    });
+                });
+            }
+
+            // --- Gerundium / Gerundivum ---
+            // Getrennt gestaffelt: Gerundium kommt in T2, das Gerundivum erst in T3.
+            if (VerbEngine.isGerundiveApplicable(verbObj)) {
+                if (VerbEngine.isGerundiumKnown(maxSelectedLesson)) {
+                    const g = VerbEngine.getGerundium(verbObj);
+                    slots.push({ form: g.gen, label: 'Gerundium Genitiv', weight: FORM_WEIGHT.selten });
+                    slots.push({ form: g.dat, label: 'Gerundium Dativ', weight: FORM_WEIGHT.selten });
+                    slots.push({ form: g.akk, label: 'Gerundium Akkusativ', weight: FORM_WEIGHT.selten });
+                    slots.push({ form: g.abl, label: 'Gerundium Ablativ', weight: FORM_WEIGHT.selten });
+                }
+
+                if (VerbEngine.isGerundivumKnown(maxSelectedLesson)) {
+                    const gd = VerbEngine.getGerundivumDeclension(verbObj);
+                    slots.push({ form: gd.sg.nom, label: 'Gerundivum Nominativ Singular', weight: FORM_WEIGHT.selten });
+                    slots.push({ form: gd.sg.akk, label: 'Gerundivum Akkusativ Singular', weight: FORM_WEIGHT.selten });
+                    slots.push({ form: gd.pl.nom, label: 'Gerundivum Nominativ Plural', weight: FORM_WEIGHT.selten });
+                }
+            }
+
+            return buildRoundFromSlots(slots);
+        }
+
+        function startDefense() {
+            if (activePool.length === 0) {
+                alert("Fehler: Kein Vokabelpool ausgewählt!"); return;
+            }
+
+            if (gameMode === 'noun') {
+                targetPool = activePool.filter(v =>
+                    v.type === 'noun' && !v.latin.includes(' ') && !v.middle.includes('Pl.')
+                );
+                if (targetPool.length < 4) {
+                    alert("Für diese Lektionsauswahl gibt es noch zu wenige geeignete Substantive. Bitte mehr Lektionen wählen.");
+                    return;
+                }
+            } else {
+                targetPool = activePool.filter(v => v.type === 'verb' && VerbEngine.isSupported(v));
+                if (targetPool.length < 4) {
+                    alert("Für diese Lektionsauswahl gibt es noch zu wenige geeignete Verben. Bitte mehr Lektionen wählen.");
+                    return;
+                }
+            }
+
+            currentWaveIdx = 0;
+            wallHealth = 100;
+            missedItems = [];
+            isReviewMode = false;
+            document.getElementById('wall-health').style.width = '100%';
+            document.getElementById('wall-health').parentElement.style.display = 'block';
+            
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('end-box').style.display = 'none';
+            document.getElementById('combat-box').style.display = 'flex';
+            
+            showWave();
+        }
+
+        function showWave(forced) {
+            roundLocked = false;
+            document.getElementById('feedback-box').style.display = 'none';
+            const ampelIcons = ['🔴', '🟡', '🟢'];
+
+            if (forced) {
+                // Wiederholungsmodus: exakt dieselbe Frage nochmal stellen
+                currentTargetObj = forced.targetObj;
+                currentRound = forced.round;
+            } else {
+                // Normaler Modus: gewichtete Auswahl nach Ampel-Level (rote Wörter häufiger)
+                currentTargetObj = LudiProgress.weightedPick(targetPool);
+                currentRound = gameMode === 'noun' ? buildNounRound(currentTargetObj) : buildVerbRound(currentTargetObj);
+            }
+
+            currentCorrectAnswer = currentRound.correctLabel;
+
+            // Stein fliegen lassen (Animation per Reflow-Trick neu starten, robuster als cloneNode)
+            const stone = document.getElementById('target-verb');
+            stone.textContent = currentRound.targetForm;
+            stone.style.animation = 'none';
+            void stone.offsetWidth; // erzwingt Reflow, damit die Animation sauber neu startet
+            stone.style.animation = '';
+
+            const colorIdx = LudiProgress.getBoxColor(currentTargetObj.latin);
+            const waveLabel = isReviewMode
+                ? `Wiederholung ${reviewIdx + 1} von ${reviewQueue.length}`
+                : `Welle ${currentWaveIdx + 1} von ${totalWaves}`;
+            document.getElementById('target-clue').innerText =
+                `${waveLabel} — Grundform: ${currentTargetObj.latin} ${ampelIcons[colorIdx]}`;
+
+            for(let i = 0; i < 4; i++) {
+                const btn = document.getElementById('shield' + i);
+                btn.textContent = currentRound.options[i];
+                btn.className = 'shield-btn';
+                btn.style.fontSize = currentRound.options[i].length > 18 ? '0.9rem' : '';
+                btn.disabled = false;
+            }
+        }
+
+        function selectShield(idx) {
+            if (roundLocked) return;
+            roundLocked = true;
+
+            for(let i = 0; i < 4; i++) document.getElementById('shield' + i).disabled = true;
+
+            const selectedBtn = document.getElementById('shield' + idx);
+            const selectedText = selectedBtn.textContent;
+            const isCorrect = (selectedText === currentCorrectAnswer);
+
+            const fbBox = document.getElementById('feedback-box');
+            const fbTitle = document.getElementById('fb-title');
+            const fbText = document.getElementById('fb-text');
+
+            fbBox.style.display = 'flex';
+
+            LudiProgress.recordVocabAttempt(currentTargetObj.latin, isCorrect);
+            const wordTypeLabel = gameMode === 'noun' ? 'des Substantivs' : 'des Verbs';
+            // Kasus-Namen sind im Deutschen maskulin ("der Nominativ"), Person ist feminin ("die 1. Person")
+            const article = gameMode === 'noun' ? 'der' : 'die';
+
+            // Achievement-Kategorie aus dem Label ableiten.
+            let category;
+            if (gameMode === 'noun') {
+                category = currentCorrectAnswer.split(' ')[0]; // "Nominativ", "Genitiv", ...
+            } else if (currentCorrectAnswer.includes('(Imperativ)')) {
+                category = 'Imperativ';
+            } else if (currentCorrectAnswer.startsWith('Infinitiv')) {
+                category = 'Infinitiv';
+            } else if (currentCorrectAnswer.startsWith('PPA')) {
+                category = 'PPA';
+            } else if (currentCorrectAnswer.startsWith('Gerundium') || currentCorrectAnswer.startsWith('Gerundivum')) {
+                category = 'Gerundium';
+            } else if (currentCorrectAnswer.startsWith('Konjunktiv')) {
+                category = 'Konjunktiv';
+            } else if (currentCorrectAnswer.includes(', Passiv')) {
+                category = 'Passiv';
+            } else {
+                const parts = currentCorrectAnswer.split(', ');
+                category = parts.length > 1 ? parts[1].replace('Futur I', 'FuturI') : 'Präsens';
+            }
+            const unlock = LudiProgress.recordCategoryAttempt(category, isCorrect);
+            if (unlock) AchievementToast.show(unlock);
+
+            if (isCorrect) {
+                if (isReviewMode) reviewCorrectCount++;
+                selectedBtn.classList.add('correct');
+                fbTitle.innerText = "🛡️ ABGEWEHRT!";
+                fbTitle.style.color = "#4CAF50";
+                fbText.innerHTML = `Hervorragend! Die Form stammt von <strong>${currentTargetObj.latin}</strong> (${currentTargetObj.meaning}).<br><br>Das ist korrekt ${article} <strong>${currentCorrectAnswer}</strong>.`;
+            } else {
+                if (!isReviewMode) {
+                    missedItems.push({ targetObj: currentTargetObj, round: currentRound });
+                }
+                selectedBtn.classList.add('wrong');
+                for(let i = 0; i < 4; i++) {
+                    if(document.getElementById('shield' + i).textContent === currentCorrectAnswer) {
+                        document.getElementById('shield' + i).classList.add('correct');
+                    }
+                }
+                
+                if (!isReviewMode) {
+                    wallHealth -= 20;
+                    if (wallHealth < 0) wallHealth = 0;
+                    document.getElementById('wall-health').style.width = wallHealth + '%';
+                }
+
+                fbTitle.innerText = "💥 TREFFER!";
+                fbTitle.style.color = "#F44336";
+                fbText.innerHTML = `Achtung, die Mauer bröckelt!<br><br>Gesucht war ${article} <strong>${currentCorrectAnswer}</strong> ${wordTypeLabel} <strong>${currentTargetObj.latin}</strong>.`;
+            }
+        }
+
+        function loadNextWave() {
+            if (isReviewMode) {
+                reviewIdx++;
+                if (reviewIdx < reviewQueue.length) {
+                    showWave(reviewQueue[reviewIdx]);
+                } else {
+                    endReview();
+                }
+                return;
+            }
+
+            currentWaveIdx++;
+            if (wallHealth <= 0) {
+                endGame(false);
+            } else if (currentWaveIdx < totalWaves) {
+                showWave(); 
+            } else {
+                endGame(true);
+            }
+        }
+
+        function startReview() {
+            reviewQueue = [...missedItems].sort(() => Math.random() - 0.5);
+            reviewIdx = 0;
+            reviewCorrectCount = 0;
+            isReviewMode = true;
+
+            document.getElementById('end-box').style.display = 'none';
+            document.getElementById('combat-box').style.display = 'flex';
+            document.getElementById('wall-health').parentElement.style.display = 'none'; // Mauerstärke spielt in der Wiederholung keine Rolle
+
+            showWave(reviewQueue[reviewIdx]);
+        }
+
+        function endReview() {
+            document.getElementById('combat-box').style.display = 'none';
+            document.getElementById('feedback-box').style.display = 'none';
+            isReviewMode = false;
+
+            const endBox = document.getElementById('end-box');
+            const title = document.getElementById('end-title');
+            const msg = document.getElementById('end-msg');
+            endBox.style.display = 'block';
+            document.getElementById('btn-review').style.display = 'none';
+            document.getElementById('box-summary').innerText = '';
+
+            title.innerText = "📚 WIEDERHOLUNG GESCHAFFT!";
+            title.style.color = "var(--pompeji)";
+            msg.innerHTML = `Du hast alle <strong>${reviewQueue.length}</strong> zuvor falschen Formen nochmal geübt und dabei <strong>${reviewCorrectCount}</strong> davon jetzt richtig beantwortet.<br><br>Was diesmal wieder falsch war, bleibt in deinem persönlichen Vokabelkasten auf Rot und kommt beim nächsten Spiel automatisch häufiger dran.`;
+        }
+
+        function endGame(isVictory) {
+            document.getElementById('combat-box').style.display = 'none';
+            document.getElementById('feedback-box').style.display = 'none';
+            
+            const endBox = document.getElementById('end-box');
+            const title = document.getElementById('end-title');
+            const msg = document.getElementById('end-msg');
+            
+            endBox.style.display = 'block';
+
+            LudiProgress.saveGameResult('kastell', wallHealth, 100);
+            const wordTypePlural = gameMode === 'noun' ? 'Substantivformen' : 'Verbformen';
+            const wordTypeGen = gameMode === 'noun' ? 'Substantive' : 'Verben';
+
+            if (isVictory) {
+                title.innerText = "🏛️ KASTELL VERTEIDIGT!";
+                title.style.color = "#4CAF50";
+                msg.innerHTML = `Ausgezeichnete Arbeit, Zenturio!<br>Deine Kohorte beherrscht die ${wordTypePlural} absolut sicher. Das Kastell hat der Belagerung mit einer Reststärke von <strong>${wallHealth}%</strong> standgehalten!`;
+            } else {
+                title.innerText = "🔥 KASTELL ZERSTÖRT!";
+                title.style.color = "#F44336";
+                msg.innerHTML = `Die feindlichen ${wordTypeGen} haben deine Verteidigungsmauern komplett zertrümmert.<br>Schau dir die Endungen noch einmal genau an und starte einen neuen Versuch!`;
+            }
+
+            const summary = LudiProgress.getBoxSummary(targetPool);
+            document.getElementById('box-summary').innerText =
+                `Dein Vokabelkasten (${targetPool.length} ${wordTypeGen} in dieser Auswahl): 🔴 ${summary.red}  🟡 ${summary.yellow}  🟢 ${summary.green}`;
+
+            const reviewBtn = document.getElementById('btn-review');
+            if (missedItems.length > 0) {
+                reviewBtn.style.display = 'inline-block';
+                reviewBtn.innerText = `📚 ${missedItems.length} falsche Antwort(en) wiederholen`;
+            } else {
+                reviewBtn.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

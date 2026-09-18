@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Circus Maximus - Das adaptive Wagenrennen</title>
+    <!-- Einbindung der zentralen Vokabeldatenbank -->
+    <script src="vocabulary.js"></script>
+    <script src="progress.js"></script>
+    <script src="achievementToast.js"></script>
+    <script src="lessonFilter.js"></script>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        /* Palette und geteilte Bausteine stehen in theme.css.
+           Hier nur, was Circus Maximus allein braucht. */
+
+        * { user-select: none; -webkit-user-select: none; }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+        }
+
+        h1 {
+            color: var(--pompeji);
+            font-family: var(--font-display);
+            text-transform: uppercase;
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+
+        .untertitel {
+            font-family: var(--font-display);
+            font-style: italic;
+            color: var(--ink-soft);
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 980px;
+            background: var(--putz);
+            border: 4px solid var(--bronze);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: var(--schatten-tief);
+            position: relative;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            text-align: center;
+            background: var(--wand);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--wand-tief);
+            margin-bottom: 15px;
+            font-family: var(--font-display);
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        /* Die beiden Fraktionsfarben mussten dunkler werden: Hellblau und
+           Orangerot lagen auf hellem Grund unter 3. */
+        .factio-veneta { color: #14567f; }
+        .factio-russata { color: #a8331a; }
+        #timer-display { color: var(--pompeji); font-size: 1.2rem; }
+
+        .timer-crit { color: var(--falsch) !important; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0.4; } }
+
+        /* resizeArena() setzt Breite und Höhe in Pixeln. Sobald die Höhe der
+           begrenzende Faktor ist, ist die Arena schmaler als der Container -
+           ohne auto-Ränder klebte sie dann am linken Rand. */
+        .circus-stadium {
+            width: 100%;
+            margin-left: auto;
+            margin-right: auto;
+            background: var(--wand-tief);
+            border: 3px solid var(--bronze);
+            border-radius: 20px;
+            position: relative;
+            margin-bottom: 20px;
+            overflow: hidden;
+            box-shadow: inset 0 0 18px rgba(90, 70, 40, 0.35);
+        }
+
+        .svg-arena {
+            display: block;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            border-radius: 20px;
+        }
+
+        /* Die Frage steht auf der Marmortafel: inneres Feld #f1ebdf,
+           dazu Tintenbraun mit Kontrast 12,1. Schnittwerte am Bild gemessen
+           (900x356, Zierlinie rund 40 px vom Rand) - Bildpixel, skalieren nicht mit. */
+        .question-box {
+            border-style: solid;
+            border-width: 26px 34px;
+            border-image: url('assets/ui/marmor.png') 44 44 44 44 fill stretch;
+            background: none;
+            padding: 6px 10px;
+            text-align: center;
+            margin-bottom: 20px;
+            min-height: 96px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .q-category {
+            font-size: 0.8rem; text-transform: uppercase; color: var(--pompeji);
+            font-weight: bold; margin-bottom: 5px; letter-spacing: 1px;
+        }
+        .q-text {
+            font-family: var(--font-display); font-size: 1.35rem;
+            color: var(--ink); font-weight: bold;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        /* Bewusst schlichte Knöpfe statt Bronzetafeln: Vier Bildtafeln
+           nebeneinander würden erschlagen, und die Antwort muss klar lesbar
+           bleiben - Tinte auf hellem Putz kommt auf 12,2. */
+        .race-btn {
+            background: var(--putz-hell);
+            border: 2px solid var(--bronze);
+            color: var(--ink);
+            padding: 18px 10px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.1s, border-color 0.1s;
+            text-align: center;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .race-btn:not(:disabled):hover { background: #fff; border-color: var(--pompeji); }
+        .race-btn:disabled { opacity: 0.55; cursor: default; }
+
+        /* ---- Kartenmodus ----
+           Keine Antwortmöglichkeiten: erst aufdecken, dann selbst einschätzen.
+           Die beiden Urteilsknöpfe tragen die Rückmeldefarben des Themes, damit
+           sie ohne Lesen auseinanderzuhalten sind. */
+        .karten-steuerung { display: flex; flex-direction: column; gap: 12px; }
+        .karten-urteil { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .race-btn.gewusst { border-color: var(--richtig); color: var(--richtig); }
+        .race-btn.nicht-gewusst { border-color: var(--falsch); color: var(--falsch); }
+        .karten-loesung {
+            font-family: var(--font-display); font-size: 1.5rem; font-weight: bold;
+            color: var(--pompeji); margin-top: 8px;
+        }
+
+        /* ---- Kartenuhr im Herausforderungsmodus ----
+           Der Balken läuft von voll auf leer. Die letzten Sekunden färben sich,
+           damit der Druck sichtbar wird, ohne dass man auf eine Zahl schauen muss. */
+        .karten-uhr {
+            height: 8px; background: var(--wand-tief); border-radius: 4px;
+            overflow: hidden; margin-bottom: 12px; border: 1px solid var(--bronze);
+        }
+        .karten-uhr > div {
+            height: 100%; width: 100%; background: var(--richtig);
+            transition: width 0.1s linear, background-color 0.3s ease;
+        }
+        .karten-uhr > div.knapp { background: var(--falsch); }
+
+        /* Die Modusauswahl im Startbildschirm */
+        .modus-wahl { display: flex; flex-direction: column; gap: 10px; align-items: center; margin-bottom: 6px; }
+        .modus-reihe { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+        .modus-titel {
+            font-family: var(--font-display); color: var(--ink-soft); font-size: 0.85rem;
+            text-transform: uppercase; letter-spacing: 1px; margin-top: 6px;
+        }
+
+        .correct { background: var(--richtig) !important; border-color: #1d4a26 !important; color: #fff !important; }
+        .wrong { background: var(--falsch) !important; border-color: #7d2020 !important; color: #fff !important; }
+
+        .end-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(244, 236, 219, 0.97);
+            color: var(--ink);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            text-align: center;
+            padding: 20px;
+            z-index: 100;
+        }
+        .end-overlay h2 { color: var(--pompeji); }
+
+        .nav-btn {
+            background-color: var(--pompeji); color: var(--marmor);
+            font-family: var(--font-display); font-weight: bold; padding: 14px 40px;
+            border: 2px solid #6d1f1f; border-radius: 25px; font-size: 1.2rem; cursor: pointer;
+            text-transform: uppercase; text-decoration: none; margin-top: 15px; display: inline-block;
+            box-shadow: var(--schatten);
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .nav-btn:not(.zweitrangig):hover { filter: brightness(1.14); }
+        .nav-btn.zweitrangig {
+            background: var(--wand); color: var(--ink); border-color: var(--bronze);
+            font-size: 0.9rem; padding: 8px 20px; box-shadow: none;
+        }
+        .nav-btn.zweitrangig:hover { background: var(--wand-tief); }
+    </style>
+</head>
+<body>
+<a href="index.html" id="global-menu-btn" onclick="return confirm('Zurück zum Hauptmenü? Der aktuelle Fortschritt in dieser Runde geht verloren.');" title="Zurück zum Hauptmenü">🏠</a>
+
+    <!-- Reiner Zierrat: hinter dem Inhalt, ohne Klickfläche, auf schmalen Schirmen aus -->
+    <div class="saeule-links" aria-hidden="true"></div>
+    <div class="saeule-rechts" aria-hidden="true"></div>
+
+    <h1>Circus Maximus: Lūdī Rōmānī</h1>
+    <div class="untertitel">
+        Fahre im Uhrzeigersinn um die Spina! Zeitlimit: 5 Minuten.
+    </div>
+
+
+    <div class="game-container">
+        
+        <!-- Start- & Endbildschirm -->
+        <div class="end-overlay" id="end-screen">
+            <h2 style="font-family: var(--font-display); font-size: 2.2rem; margin-bottom: 10px;" id="end-title">CIRCUS MAXIMUS</h2>
+            <p style="font-size: 1.2rem; margin: 15px 0; max-width: 520px; line-height: 1.6;" id="end-msg">
+                Steuere das blaue Gespann (Factio Veneta) durch fehlerfreie Antworten um die Arena. Doch Vorsicht: Die rote KI (Factio Russata) nutzt jeden Fehler aus, um an dir vorbeizuziehen!
+            </p>
+            <!-- onclick entfernt, wird via JavaScript sicher gebunden -->
+            <div class="modus-wahl">
+                <button class="nav-btn" data-modus="mc">Rennen starten!</button>
+                <button class="nav-btn zweitrangig" data-modus="karten">Karten lernen</button>
+                <div class="modus-titel">Herausforderung — Zeit je Karte</div>
+                <div class="modus-reihe">
+                    <button class="nav-btn" data-modus="wettkampf" data-denkzeit="4">I · ~7 s</button>
+                    <button class="nav-btn" data-modus="wettkampf" data-denkzeit="1.9">II · ~5 s</button>
+                    <button class="nav-btn" data-modus="wettkampf" data-denkzeit="0.8">III · ~4 s</button>
+                </div>
+            </div>
+            <a href="index.html" class="nav-btn zweitrangig" id="back-menu-btn" style="display:none;">Zurück zum Menü</a>
+        </div>
+
+        <!-- Dashboard -->
+        <div class="dashboard">
+            <div class="factio-veneta">Blau (Tu): <span id="p-laps">0</span> R.</div>
+            <div id="timer-display">05:00</div>
+            <div class="factio-russata">Rot (KI): <span id="ai-laps">0</span> R.</div>
+        </div>
+
+        <!-- Arena -->
+        <div class="circus-stadium">
+            <svg class="svg-arena" viewBox="0 0 700 240">
+                <image href="assets/circus/background.png" x="0" y="0" width="700" height="240" preserveAspectRatio="xMidYMid slice"/>
+
+                <line x1="240" y1="55" x2="240" y2="185" stroke="#fff" stroke-width="4" stroke-dasharray="4,4"/>
+
+                <!-- SPIELER WAGEN (Factio Veneta, blau) -->
+                <g id="svg-player">
+                    <image href="assets/circus/chariot_blue.png" x="-11.65" y="-6.5" width="23.3" height="13"/>
+                </g>
+
+                <!-- GEGNER WAGEN (Factio Russata, rot) -->
+                <g id="svg-ai">
+                    <image href="assets/circus/chariot_red.png" x="-12.5" y="-6.5" width="25" height="13"/>
+                </g>
+            </svg>
+        </div>
+
+        <!-- Quiz Sektor -->
+        <div id="quiz-area">
+            <div class="question-box">
+                <div class="q-category" id="category-display">WORTARTEN-PRÜFUNG</div>
+                <div class="q-text" id="question-display">Klicke auf den Button, um das Rennen zu eröffnen!</div>
+            </div>
+            <!-- Läuft nur im Herausforderungsmodus -->
+            <div class="karten-uhr" id="karten-uhr" style="display:none;"><div id="karten-uhr-balken"></div></div>
+
+            <div class="options-grid" id="options-grid">
+                <!-- onclick entfernt, wird via JavaScript sicher gebunden -->
+                <button class="race-btn" id="opt0" disabled>-</button>
+                <button class="race-btn" id="opt1" disabled>-</button>
+                <button class="race-btn" id="opt2" disabled>-</button>
+                <button class="race-btn" id="opt3" disabled>-</button>
+            </div>
+
+            <!-- Kartenmodus: erst aufdecken, dann selbst einschätzen -->
+            <div class="karten-steuerung" id="karten-steuerung" style="display:none;">
+                <button class="race-btn" id="btn-aufdecken">Aufdecken</button>
+                <div class="karten-urteil" id="karten-urteil" style="display:none;">
+                    <button class="race-btn gewusst" id="btn-gewusst">Gewusst</button>
+                    <button class="race-btn nicht-gewusst" id="btn-nicht-gewusst">Nicht gewusst</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let timerInterval = null;
+        let timeLeft = 300; 
+        let playerProgress = 0; 
+        let aiProgress = 0;
+        let playerLaps = 0;
+        let aiLaps = 0;
+        let currentCorrectAnswer = "";
+        let currentVocabItem = null;
+        let activePool = [];
+
+        /* ============ DREI MODI ============
+           'mc'         - das klassische Rennen mit vier Antworten, ohne Zeit je Karte
+           'karten'     - reines Karteikartenlernen: aufdecken, selbst einschätzen.
+                          Kein Zeitlimit, kein Gegner. Auf Wunsch der Klasse.
+           'wettkampf'  - wie 'mc', aber mit einer Uhr je Karte. Wer zu langsam ist,
+                          lässt die KI vorrücken - wie bei einer falschen Antwort. */
+        let spielModus = 'mc';
+        let denkzeitProKarte = 0;    // Sekunden zum Nachdenken, je Stufe
+        let kartenUhr = null;        // Intervall der Kartenuhr
+        let kartenRest = 0;          // verbleibende Zehntelsekunden
+        let kartenGesamt = 0;        // Zehntelsekunden, die diese Karte bekommen hat
+        let kartenZaehler = 0;       // gelernte Karten im Kartenmodus
+
+        /* Wie viel Zeit bekommt eine Karte?
+           Nicht einfach eine feste Zahl je Stufe - eine Runde zeigt VIER
+           Bedeutungen, und die sind mal zwei, mal vierzehn Wörter lang. Im
+           Wortschatz gemessen: eine typische Runde zeigt 8 Wörter, das oberste
+           Zehntel 16. Bei festen 5 Sekunden ist eine lange Karte deshalb
+           unabhängig vom Können nicht zu schaffen - die Zeit reicht nicht einmal
+           zum Lesen.
+           Die Stufe legt darum die DENKZEIT fest; die Lesezeit kommt aus dem,
+           was wirklich auf der Karte steht (3 Wörter je Sekunde, stilles Lesen
+           eines Zwölfjährigen). Eine typische Karte bekommt damit rund 7, 5 bzw.
+           4 Sekunden, eine lange entsprechend mehr. */
+        const WOERTER_JE_SEKUNDE = 3;
+
+        function kartenzeitSekunden() {
+            const felder = [];
+            for (let i = 0; i < 4; i++) felder.push(document.getElementById('opt' + i).textContent || '');
+            const woerter = felder.join(' ').split(/[\s,;]+/).filter(Boolean).length;
+            return denkzeitProKarte + woerter / WOERTER_JE_SEKUNDE;
+        }
+
+        /* ============ ARENA-GRÖSSE (Breite UND Höhe berücksichtigen, wichtig im Querformat) ============ */
+        function resizeArena() {
+            const stadium = document.querySelector('.circus-stadium');
+            const container = document.querySelector('.game-container');
+            const quizArea = document.getElementById('quiz-area');
+            if (!stadium || !container || !quizArea) return;
+
+            const availW = container.clientWidth;
+            const stadiumTop = stadium.getBoundingClientRect().top;
+            const quizHeight = quizArea.getBoundingClientRect().height;
+            const availH = window.innerHeight - stadiumTop - quizHeight - 40;
+
+            const ratio = 240 / 700;
+            let w = Math.min(availW, 1400);
+            let h = w * ratio;
+            if (h > availH && availH > 100) { h = availH; w = h / ratio; }
+
+            stadium.style.width = Math.round(w) + 'px';
+            stadium.style.height = Math.round(h) + 'px';
+        }
+        window.addEventListener('resize', resizeArena);
+        window.addEventListener('orientationchange', function() { setTimeout(resizeArena, 150); });
+
+        // Zentrale, ausfallsichere Event-Bindung beim Laden der Seite
+        window.onload = function() {
+            resizeArena();
+            // Start-Button ankoppeln: erst Lektionsauswahl, dann Rennen starten
+            // Jeder Modusknopf trägt seinen Modus als data-Attribut - so braucht es
+            // keine fünf gleichartigen Handler.
+            document.querySelectorAll('[data-modus]').forEach(function (knopf) {
+                knopf.addEventListener('click', function () {
+                    if (typeof globalVocabularyPool === 'undefined' || globalVocabularyPool.length === 0) {
+                        alert("Kritischer Fehler: Die Datei 'vocabulary.js' konnte nicht geladen werden!");
+                        return;
+                    }
+                    spielModus = knopf.getAttribute('data-modus');
+                    denkzeitProKarte = parseFloat(knopf.getAttribute('data-denkzeit')) || 0;
+                    LessonFilter.show(globalVocabularyPool, function(filteredPool) {
+                        activePool = filteredPool;
+                        startRace();
+                        setTimeout(resizeArena, 100);
+                    });
+                });
+            });
+
+            document.getElementById('btn-aufdecken').addEventListener('click', deckeAuf);
+            document.getElementById('btn-gewusst').addEventListener('click', function () { beurteileKarte(true); });
+            document.getElementById('btn-nicht-gewusst').addEventListener('click', function () { beurteileKarte(false); });
+            
+            // Antwort-Buttons ankoppeln
+            for (let i = 0; i < 4; i++) {
+                document.getElementById('opt' + i).addEventListener('click', function() {
+                    checkAnswer(i);
+                });
+            }
+            
+            initRace();
+        };
+
+        function initRace() {
+            document.getElementById('end-screen').style.display = 'flex';
+            updatePositions();
+        }
+
+        function startRace() {
+            if (activePool.length === 0) {
+                alert("Kritischer Fehler: Kein Vokabelpool ausgewählt!");
+                return;
+            }
+
+            timeLeft = 300;
+            playerProgress = 0;
+            aiProgress = 0;
+            playerLaps = 0;
+            aiLaps = 0;
+            kartenZaehler = 0;
+
+            document.getElementById('end-screen').style.display = 'none';
+            document.getElementById('back-menu-btn').style.display = 'inline-block';
+
+            // Im Kartenmodus gibt es weder Uhr noch Gegner - beides würde nur
+            // Druck machen, und genau den soll dieser Modus nicht haben.
+            const imKartenmodus = (spielModus === 'karten');
+            document.querySelector('.factio-russata').style.visibility = imKartenmodus ? 'hidden' : 'visible';
+            document.getElementById('svg-ai').style.display = imKartenmodus ? 'none' : '';
+            document.getElementById('karten-uhr').style.display = (spielModus === 'wettkampf') ? 'block' : 'none';
+
+            updateDashboard();
+            updatePositions();
+
+            if (timerInterval) clearInterval(timerInterval);
+            if (!imKartenmodus) timerInterval = setInterval(tickTimer, 1000);
+
+            nextQuestion();
+        }
+
+        function tickTimer() {
+            timeLeft--;
+            updateDashboard();
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                endGame();
+            }
+        }
+
+        function updateDashboard() {
+            const timerEl = document.getElementById('timer-display');
+
+            // Im Kartenmodus läuft keine Uhr - dort steht an ihrer Stelle, wie
+            // viele Karten schon durch sind.
+            if (spielModus === 'karten') {
+                timerEl.innerText = kartenZaehler + (kartenZaehler === 1 ? ' Karte' : ' Karten');
+                timerEl.classList.remove('timer-crit');
+                document.getElementById('p-laps').innerText = playerLaps;
+                return;
+            }
+
+            let minutes = Math.floor(timeLeft / 60);
+            let seconds = timeLeft % 60;
+            let displayString = (minutes < 10 ? "0" : "") + minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
+
+            timerEl.innerText = displayString;
+
+            if (timeLeft <= 60) {
+                timerEl.classList.add('timer-crit');
+            } else {
+                timerEl.classList.remove('timer-crit');
+            }
+
+            document.getElementById('p-laps').innerText = playerLaps;
+            document.getElementById('ai-laps').innerText = aiLaps;
+        }
+
+        let trackCenterXLeft = 205;
+        let trackCenterXRight = 495;
+        let trackCenterY = 121;
+        let playerRadius = 22;
+        let aiRadius = 41;
+
+        function getChariotCoords(progress, radius) {
+            let x = 0, y = 0, angle = 0;
+            const centerXLeft = trackCenterXLeft;
+            const centerXRight = trackCenterXRight;
+            const centerY = trackCenterY;
+
+            if (progress >= 0 && progress < 35) {
+                let t = progress / 35;
+                x = centerXLeft + t * (centerXRight - centerXLeft);
+                y = centerY - radius;
+                angle = 0;
+            } 
+            else if (progress >= 35 && progress < 50) {
+                let t = (progress - 35) / 15;
+                let alpha = -Math.PI / 2 + (t * Math.PI);
+                x = centerXRight + radius * Math.cos(alpha);
+                y = centerY + radius * Math.sin(alpha);
+                angle = t * 180;
+            } 
+            else if (progress >= 50 && progress < 85) {
+                let t = (progress - 50) / 35;
+                x = centerXRight - t * (centerXRight - centerXLeft);
+                y = centerY + radius;
+                angle = 180;
+            } 
+            else if (progress >= 85 && progress <= 100) {
+                let t = (progress - 85) / 15;
+                let alpha = Math.PI / 2 + (t * Math.PI);
+                x = centerXLeft + radius * Math.cos(alpha);
+                y = centerY + radius * Math.sin(alpha);
+                angle = 180 + (t * 180);
+            }
+
+            return { x: x, y: y, angle: angle };
+        }
+
+        function updatePositions() {
+            let pCoords = getChariotCoords(playerProgress, playerRadius);
+            let aiCoords = getChariotCoords(aiProgress, aiRadius);
+
+            document.getElementById('svg-player').setAttribute('transform', `translate(${pCoords.x}, ${pCoords.y}) rotate(${pCoords.angle})`);
+            document.getElementById('svg-ai').setAttribute('transform', `translate(${aiCoords.x}, ${aiCoords.y}) rotate(${aiCoords.angle})`);
+        }
+
+        function nextQuestion() {
+            if (spielModus !== 'karten' && timeLeft <= 0) return;
+
+            stoppeKartenUhr();
+
+            // Der Vokabelkasten bestimmt, was drankommt: Wörter, die noch nicht
+            // sitzen, erscheinen häufiger. Circus war das einzige Vokabelspiel,
+            // das stattdessen gleichverteilt gewürfelt hat - Kastell, Principia
+            // und Issa nutzen weightedPick seit jeher.
+            const item = LudiProgress.weightedPick(activePool)
+                      || activePool[Math.floor(Math.random() * activePool.length)];
+            currentVocabItem = item;
+
+            const categoryText = `🔮 Bedeutung — Wortart: ${translateType(item.type)}`;
+            const questionText = `Was bedeutet das Wort „${item.latin}“?`;
+            currentCorrectAnswer = item.meaning;
+
+            if (spielModus === 'karten') {
+                zeigeKarte(item, categoryText, questionText);
+                return;
+            }
+            document.getElementById('options-grid').style.display = 'grid';
+            document.getElementById('karten-steuerung').style.display = 'none';
+
+            let wrongPool = activePool
+                .filter(i => i.type === item.type && i.meaning !== currentCorrectAnswer)
+                .map(i => i.meaning);
+
+            wrongPool = [...new Set(wrongPool)].sort(() => Math.random() - 0.5).slice(0, 3);
+            while (wrongPool.length < 3) {
+                let fb = activePool[Math.floor(Math.random() * activePool.length)];
+                if (fb.meaning !== currentCorrectAnswer && !wrongPool.includes(fb.meaning)) wrongPool.push(fb.meaning);
+            }
+
+            const finalOptions = [currentCorrectAnswer, ...wrongPool].sort(() => Math.random() - 0.5);
+
+            document.getElementById('category-display').innerText = categoryText;
+            document.getElementById('question-display').innerText = questionText;
+
+            for (let i = 0; i < 4; i++) {
+                const btn = document.getElementById('opt' + i);
+                btn.textContent = finalOptions[i];
+                btn.className = "race-btn";
+                btn.disabled = false;
+            }
+
+            if (spielModus === 'wettkampf') starteKartenUhr();
+        }
+
+        /* ---------- Kartenmodus ----------
+           Aufdecken, selbst einschätzen, weiter. Die Selbsteinschätzung geht
+           genauso in den Vokabelkasten wie eine angeklickte Antwort - wer ehrlich
+           ist, bekommt die Wörter wieder, die noch nicht sitzen. */
+        function zeigeKarte(item, categoryText, questionText) {
+            document.getElementById('category-display').innerText = categoryText;
+            document.getElementById('question-display').innerHTML = questionText;
+            document.getElementById('options-grid').style.display = 'none';
+            document.getElementById('karten-steuerung').style.display = 'flex';
+            document.getElementById('karten-urteil').style.display = 'none';
+            const aufdecken = document.getElementById('btn-aufdecken');
+            aufdecken.style.display = 'block';
+            aufdecken.disabled = false;
+        }
+
+        function deckeAuf() {
+            document.getElementById('question-display').innerHTML =
+                `Was bedeutet das Wort „${currentVocabItem.latin}“?` +
+                `<div class="karten-loesung">${currentVocabItem.meaning}</div>`;
+            document.getElementById('btn-aufdecken').style.display = 'none';
+            document.getElementById('karten-urteil').style.display = 'grid';
+        }
+
+        function beurteileKarte(gewusst) {
+            LudiProgress.recordVocabAttempt(currentVocabItem.latin, gewusst);
+            const kategorie = { noun: 'Substantiv', verb: 'Verb', adjective: 'Adjektiv' }[currentVocabItem.type];
+            if (kategorie) {
+                const unlock = LudiProgress.recordCategoryAttempt(kategorie, gewusst);
+                if (unlock) AchievementToast.show(unlock);
+            }
+
+            kartenZaehler++;
+            // Der eigene Wagen zieht weiter, wenn das Wort saß. Es gibt keinen
+            // Gegner - der Wagen ist hier nur die Anzeige des eigenen Fortschritts.
+            if (gewusst) {
+                playerProgress += 10;
+                if (playerProgress >= 100) { playerLaps++; playerProgress -= 100; }
+            }
+            updateDashboard();
+            updatePositions();
+            nextQuestion();
+        }
+
+        /* ---------- Kartenuhr (Herausforderungsmodus) ----------
+           Zehntelsekunden, damit der Balken ruhig läuft und nicht springt. */
+        function starteKartenUhr() {
+            kartenGesamt = Math.round(kartenzeitSekunden() * 10);
+            kartenRest = kartenGesamt;
+            const balken = document.getElementById('karten-uhr-balken');
+            balken.classList.remove('knapp');
+            balken.style.width = '100%';
+            kartenUhr = setInterval(function () {
+                kartenRest--;
+                const anteil = Math.max(0, kartenRest / kartenGesamt);
+                balken.style.width = (anteil * 100) + '%';
+                if (anteil <= 0.3) balken.classList.add('knapp');
+                if (kartenRest <= 0) {
+                    stoppeKartenUhr();
+                    zeitAbgelaufen();
+                }
+            }, 100);
+        }
+
+        function stoppeKartenUhr() {
+            if (kartenUhr) { clearInterval(kartenUhr); kartenUhr = null; }
+        }
+
+        /* Zu langsam zählt wie falsch: Die KI rückt vor, die richtige Antwort
+           wird gezeigt, und das Wort wandert im Vokabelkasten zurück auf Anfang.
+           Wer eine Bedeutung nicht in fünf Sekunden abrufen kann, hat sie eben
+           noch nicht sicher. */
+        function zeitAbgelaufen() {
+            for (let i = 0; i < 4; i++) document.getElementById('opt' + i).disabled = true;
+
+            LudiProgress.recordVocabAttempt(currentVocabItem.latin, false);
+            const kategorie = { noun: 'Substantiv', verb: 'Verb', adjective: 'Adjektiv' }[currentVocabItem.type];
+            if (kategorie) LudiProgress.recordCategoryAttempt(kategorie, false);
+
+            const ziel = currentCorrectAnswer.trim();
+            for (let i = 0; i < 4; i++) {
+                const btn = document.getElementById('opt' + i);
+                if (btn.textContent.trim() === ziel) btn.classList.add('correct');
+            }
+            document.getElementById('category-display').innerText = '⏱ Zu langsam!';
+
+            aiProgress += 15;
+            if (aiProgress >= 100) { aiLaps++; aiProgress -= 100; }
+
+            updateDashboard();
+            updatePositions();
+            setTimeout(function () { if (timeLeft > 0) nextQuestion(); }, 1200);
+        }
+
+        function checkAnswer(selectedIdx) {
+            stoppeKartenUhr();
+            for (let i = 0; i < 4; i++) {
+                document.getElementById('opt' + i).disabled = true;
+            }
+
+            const selectedButton = document.getElementById('opt' + selectedIdx);
+            const selectedText = selectedButton.textContent.trim();
+            const targetAnswer = currentCorrectAnswer.trim();
+            const isCorrect = (selectedText === targetAnswer);
+            LudiProgress.recordVocabAttempt(currentVocabItem.latin, isCorrect);
+
+            const wordTypeToCategory = { noun: 'Substantiv', verb: 'Verb', adjective: 'Adjektiv' };
+            const category = wordTypeToCategory[currentVocabItem.type];
+            if (category) {
+                const unlock = LudiProgress.recordCategoryAttempt(category, isCorrect);
+                if (unlock) AchievementToast.show(unlock);
+            }
+
+            if (isCorrect) {
+                selectedButton.classList.add('correct');
+                playerProgress += 10; 
+                if (playerProgress >= 100) {
+                    playerLaps++;
+                    playerProgress -= 100;
+                }
+            } else {
+                selectedButton.classList.add('wrong');
+                for (let i = 0; i < 4; i++) {
+                    if (document.getElementById('opt' + i).textContent.trim() === targetAnswer) {
+                        document.getElementById('opt' + i).classList.add('correct');
+                    }
+                }
+                
+                aiProgress += 15; 
+                if (aiProgress >= 100) {
+                    aiLaps++;
+                    aiProgress -= 100;
+                }
+            }
+
+            updateDashboard();
+            updatePositions();
+
+            setTimeout(() => {
+                if (timeLeft > 0) {
+                    nextQuestion();
+                }
+            }, 1200);
+        }
+
+        function translateType(type) {
+            const types = {
+                noun: "Substantiv", verb: "Verb", adjective: "Adjektiv",
+                adverb: "Adverb", preposition: "Präposition", pronoun: "Pronomen",
+                conjunction: "Konjunktion", other: "Partikel"
+            };
+            return types[type] || type;
+        }
+
+        function endGame() {
+            stoppeKartenUhr();
+            const overlay = document.getElementById('end-screen');
+            const title = document.getElementById('end-title');
+            const msg = document.getElementById('end-msg');
+
+            LudiProgress.saveGameResult('circus', playerLaps, null);
+
+            overlay.style.display = 'flex';
+            title.innerText = "⏱️ FINIS SPATIĪ!";
+            
+            if (playerLaps > aiLaps) {
+                msg.innerHTML = `<strong>Glorreicher Triumph!</strong><br>Die Sanduhr ist abgelaufen. Du hast dein Gespann meisterhaft gesteuert und die feindliche Fraktion im Staub zurückgelassen!<br><br>🏁 Dein Rekord: <strong>${playerLaps} Runden</strong><br>🐎 Factio Russata (Rot): <strong>${aiLaps} Runden</strong>`;
+                title.style.color = "var(--richtig)";
+            } else if (playerLaps < aiLaps) {
+                msg.innerHTML = `<strong>Niederlage im Circus!</strong><br>Der rote Wagen hat dich auf den letzten Metern niedergerungen. Bessere deine Vokabel-Abwehr aus!<br><br>🏁 Dein Rekord: <strong>${playerLaps} Runden</strong><br>🐎 Factio Russata (Rot): <strong>${aiLaps} Runden</strong>`;
+                title.style.color = "var(--falsch)";
+            } else {
+                msg.innerHTML = `<strong>Ex aequo - Gleichstand!</strong><br>Ein dramatisches Finale! Beide Wagen überqueren zeitgleich die Ziellinie.<br><br>🏁 Ihr beide schafft hervorragende <strong>${playerLaps} Runden</strong>!`;
+                title.style.color = "var(--ink)";
+            }
+        }
+    </script>
+</body>
+</html>

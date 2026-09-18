@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Pronomina! - Der Pronomen-Detektiv</title>
+    <script src="vocabulary.js"></script>
+    <script src="progress.js"></script>
+    <script src="achievementToast.js"></script>
+    <script src="lessonFilter.js"></script>
+    <script src="nounEngine.js"></script>
+    <script src="verbEngine.js"></script>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--wand);
+            color: var(--ink);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 15px;
+        }
+
+        h1 {
+            color: var(--pompeji);
+            font-family: var(--font-display);
+            text-transform: uppercase;
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+            text-align: center;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 4px rgba(80, 60, 30, 0.22);
+        }
+
+        .subtitle { font-family: var(--font-display); font-style: italic; color: var(--ink-soft); margin-bottom: 15px; text-align: center; }
+
+        .game-container {
+            width: 100%;
+            max-width: 650px;
+            background: var(--putz);
+            border: 4px solid var(--bronze);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(80, 60, 30, 0.22);
+            position: relative;
+            min-height: 420px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .start-screen { text-align: center; padding: 10px; }
+
+        .notice-box { margin: 20px 0; }
+
+        .progress-bar-container { margin-bottom: 20px; }
+
+        .case-number {
+            text-align: center; font-size: 0.9rem; color: var(--ink-soft); margin-bottom: 10px; letter-spacing: 1px;
+        }
+
+        .case-file {
+            background: var(--putz);
+            color: #2a2a2a;
+            border-radius: 8px;
+            padding: 25px 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(80, 60, 30, 0.12);
+            border-left: 6px solid var(--pompeji);
+        }
+
+        .latin-sentence {
+            font-family: var(--font-display); font-size: 1.35rem; font-weight: bold;
+            text-align: center; line-height: 1.6; margin-bottom: 12px;
+        }
+        .latin-sentence .blank {
+            display: inline-block; min-width: 70px; border-bottom: 2px solid var(--pompeji);
+            color: var(--pompeji);
+        }
+
+        .translation-hint {
+            font-size: 0.95rem; color: var(--ink-soft); text-align: center; font-style: italic;
+        }
+        .translation-hint .blank { font-weight: bold; color: var(--pompeji); }
+
+        .options-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; flex-grow: 1;
+        }
+
+        .opt-btn {
+            background: linear-gradient(#800000, #5a0000);
+            border: 3px solid var(--gold); color: var(--marmor);
+            padding: 16px 5px; font-size: 1.15rem; font-weight: bold; font-family: var(--font-display);
+            border-radius: 8px; cursor: pointer; box-shadow: 0 4px 8px rgba(80, 60, 30, 0.12);
+            transition: background 0.1s; text-align: center; touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .opt-btn:not(:disabled):active { background: #4a0000; color: #fff; }
+
+        .feedback-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(244, 236, 219, 0.96); border-radius: 12px;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            padding: 25px; text-align: center; z-index: 10;
+        }
+        .feedback-title { font-family: var(--font-display); font-size: 1.8rem; margin-bottom: 15px; }
+        .feedback-explanation { font-size: 1.1rem; line-height: 1.55; margin-bottom: 25px; max-width: 500px; }
+
+
+        .correct { background: var(--richtig) !important; border-color: #fff !important; color: #fff; }
+        .wrong { background: var(--falsch) !important; border-color: #fff !important; color: #fff; }
+    </style>
+</head>
+<body>
+<a href="index.html" id="global-menu-btn" onclick="return confirm('Zurück zum Hauptmenü? Der aktuelle Fortschritt in dieser Runde geht verloren.');" title="Zurück zum Hauptmenü">🏠</a>
+
+    <!-- Reiner Zierrat: hinter dem Inhalt, ohne Klickfläche, auf schmalen Schirmen aus -->
+    <div class="saeule-links" aria-hidden="true"></div>
+    <div class="saeule-rechts" aria-hidden="true"></div>
+
+    <h1>🔍 Pronomina!</h1>
+    <div class="subtitle">Der Pronomen-Detektiv</div>
+
+    <div class="trenner" style="max-width: 650px;" aria-hidden="true"></div>
+
+    <div class="game-container">
+
+        <!-- START: MODUS-AUSWAHL -->
+        <div id="start-screen" class="start-screen">
+            <h2 style="font-family: var(--font-display); color: var(--ink); margin-bottom: 15px;">Welchen Fall willst du lösen?</h2>
+
+            <div class="notice-box">
+                <h3>🔍 Modus 1: Possessivpronomina</h3>
+                <p>In jedem Satz kommen <strong>zwei Personen</strong> vor. Finde heraus, wem der markierte Gegenstand wirklich gehört: dem Subjekt selbst (<strong>suus/sua/suum</strong>, im Deutschen „EIGEN-") oder der anderen Person (<strong>eius/eōrum</strong>, im Deutschen „DESSEN"/„DEREN").</p>
+            </div>
+            <button class="start-btn" id="btn-start-possessiv" style="margin-bottom: 25px;">Possessivpronomina üben</button>
+
+            <div class="notice-box">
+                <h3>🗣️ Modus 2: Personalpronomina</h3>
+                <p>Du siehst einen lateinischen Satz mit Lücke. Ist die gesuchte Person das <strong>Subjekt</strong> (ego, tū, nōs, vōs) oder das <strong>Objekt</strong> (mē, tē, nōs, vōs)? Das Verb im Satz gibt dir dabei einen zusätzlichen Hinweis.</p>
+                <p style="margin-top: 10px; font-size: 0.9rem; color: var(--ink-soft);">Hinweis: nōs und vōs sehen im Nominativ und Akkusativ gleich aus - das ist kein Fehler, sondern echtes Latein! Und: Die Sätze werden zufällig aus dem Wortschatz kombiniert, manche Kombinationen sind inhaltlich etwas kurios - die Grammatik-Aufgabe bleibt davon unberührt.</p>
+            </div>
+            <button class="start-btn" id="btn-start-personal">Personalpronomina üben</button>
+
+            <div class="notice-box">
+                <h3>👉 Modus 3: Demonstrativpronomina</h3>
+                <p>Zu einem Nomen in einer bestimmten Form wird das passende Pronomen (<strong>hic, ille</strong> oder <strong>is</strong>) gesucht - Genus, Numerus und Kasus müssen übereinstimmen, genau wie bei einem Adjektiv.</p>
+            </div>
+            <button class="start-btn" id="btn-start-demonstrativ" style="margin-bottom: 25px;">Demonstrativpronomina üben</button>
+
+            <div class="notice-box">
+                <h3>🔗 Modus 4: Relativpronomen</h3>
+                <p><strong>Wichtig:</strong> Genus und Numerus von <strong>quī, quae, quod</strong> richten sich nach dem Bezugswort - der <strong>Kasus</strong> aber nach der Funktion des Pronomens im Nebensatz selbst! Der Kasus des Bezugsworts im Hauptsatz ist dabei egal.</p>
+            </div>
+            <button class="start-btn" id="btn-start-relativ">Relativpronomen üben</button>
+
+            <p id="overall-progress-note" style="margin-top: 20px; font-size: 0.85rem; color: var(--ink-soft);"></p>
+        </div>
+
+        <!-- SPIELFELD -->
+        <div id="combat-box" style="display: none; flex-grow: 1; flex-direction: column;">
+            <div class="case-number" id="case-number">FALL 1 VON 12</div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+
+            <div class="case-file">
+                <div class="latin-sentence" id="latin-sentence"></div>
+                <div class="translation-hint" id="translation-hint"></div>
+            </div>
+
+            <div class="options-grid">
+                <button class="opt-btn" id="opt0">-</button>
+                <button class="opt-btn" id="opt1">-</button>
+                <button class="opt-btn" id="opt2">-</button>
+                <button class="opt-btn" id="opt3">-</button>
+            </div>
+        </div>
+
+        <!-- FEEDBACK -->
+        <div class="feedback-overlay" id="feedback-box">
+            <div class="feedback-title" id="fb-title">Richtig!</div>
+            <div class="feedback-explanation" id="fb-text">Erklärung...</div>
+            <button class="start-btn" style="font-size:1.1rem; padding:10px 30px;" id="btn-next-case">Nächster Fall</button>
+        </div>
+
+        <!-- ENDE -->
+        <div id="end-box" style="display: none; text-align: center; padding: 20px 10px; margin: auto;">
+            <h2 id="end-title" style="font-size: 2.2rem; color: var(--pompeji); font-family: var(--font-display); margin-bottom: 20px;">FALL GELÖST!</h2>
+            <p id="end-msg" style="margin: 20px 0; font-size: 1.2rem; line-height: 1.6;"></p>
+            <button class="start-btn" style="font-size:1.1rem; padding:12px 30px;" id="btn-restart">Zur Modus-Auswahl</button>
+            <br>
+            <a href="index.html" class="start-btn" style="text-decoration: none; display: inline-block; font-size:1rem; background: var(--wand-tief); color: var(--ink); margin-top: 15px;">Zurück zum Menü</a>
+        </div>
+    </div>
+
+    <script>
+        // Alle Sätze verwenden ausschließlich Wortschatz aus Salvē bis Lektion 6.
+        // Jede Form wurde einzeln gegen die Deklinations-/Konjugationsregeln geprüft.
+        const cases = [
+            {
+                latin: "Puella frātrem et ___ canem videt.",
+                translation: "Das Mädchen sieht ihren Bruder und ihren EIGENEN Hund.",
+                correct: "suum",
+                options: ["suum", "eius", "tuum", "nostrum"],
+                explanation: "<strong>suum</strong> bezieht sich auf das Subjekt „puella“ selbst zurück – deshalb steht im Deutschen „EIGENEN“."
+            },
+            {
+                latin: "Aulus sorōrem et ___ amicam salūtat.",
+                translation: "Aulus grüßt seine Schwester und DEREN Freundin.",
+                correct: "eius",
+                options: ["eius", "suam", "meam", "vestram"],
+                explanation: "<strong>eius</strong> bezieht sich NICHT auf das Subjekt Aulus, sondern auf „sorōrem“ – deshalb steht im Deutschen „DEREN“ (= der Schwester ihre)."
+            },
+            {
+                latin: "Pater fīliōs et ___ magistrum exspectat.",
+                translation: "Der Vater erwartet die Söhne und DEREN Lehrer.",
+                correct: "eōrum",
+                options: ["eōrum", "suum", "vestrum", "tuum"],
+                explanation: "<strong>eōrum</strong> wird verwendet, weil sich der Bezug auf mehrere Personen (fīliōs) bezieht – deshalb „DEREN“ (Plural), nicht auf das Subjekt."
+            },
+            {
+                latin: "Discipulus magistrum et ___ tabulam videt.",
+                translation: "Der Schüler sieht den Lehrer und sein EIGENES Wachstäfelchen.",
+                correct: "suam",
+                options: ["suam", "eius", "tuam", "nostram"],
+                explanation: "<strong>suam</strong> bezieht sich auf „discipulus“ zurück – deshalb „EIGENES“. Die Form ist feminin, weil „tabula“ feminin ist."
+            },
+            {
+                latin: "Serva dominum et ___ equum videt.",
+                translation: "Die Sklavin sieht den Herrn und DESSEN Pferd.",
+                correct: "eius",
+                options: ["eius", "suum", "tuum", "nostrum"],
+                explanation: "<strong>eius</strong> bezieht sich auf „dominum“, nicht auf das Subjekt „serva“ – deshalb „DESSEN“ (= des Herrn sein)."
+            },
+            {
+                latin: "Puer avum et ___ canem vocat.",
+                translation: "Der Junge ruft den Großvater und seinen EIGENEN Hund.",
+                correct: "suum",
+                options: ["suum", "eius", "vestrum", "meum"],
+                explanation: "<strong>suum</strong> bezieht sich auf das Subjekt „puer“ zurück – deshalb „EIGENEN“."
+            },
+            {
+                latin: "Fīlia mātrem et ___ tunicam videt.",
+                translation: "Die Tochter sieht die Mutter und DEREN Tunika.",
+                correct: "eius",
+                options: ["eius", "suam", "tuam", "nostram"],
+                explanation: "<strong>eius</strong> bezieht sich auf „mātrem“, nicht auf das Subjekt „fīlia“ – deshalb „DEREN“ (= der Mutter ihre)."
+            },
+            {
+                latin: "Dominus servum et ___ pecūniam servat.",
+                translation: "Der Herr bewacht den Sklaven und sein EIGENES Geld.",
+                correct: "suam",
+                options: ["suam", "eius", "tuam", "vestram"],
+                explanation: "<strong>suam</strong> bezieht sich auf das Subjekt „dominus“ zurück – deshalb „EIGENES“."
+            },
+            {
+                latin: "Vir fīliōs et ___ hortum spectat.",
+                translation: "Der Mann betrachtet die Söhne und DEREN Garten.",
+                correct: "eōrum",
+                options: ["eōrum", "suum", "tuum", "nostrum"],
+                explanation: "<strong>eōrum</strong> wird verwendet, weil sich der Bezug auf die Söhne (Plural) bezieht – deshalb „DEREN“, nicht auf das Subjekt."
+            },
+            {
+                latin: "Soror frātrem et ___ dōnum cōnspicit.",
+                translation: "Die Schwester erblickt den Bruder und ihr EIGENES Geschenk.",
+                correct: "suum",
+                options: ["suum", "eius", "vestrum", "meum"],
+                explanation: "<strong>suum</strong> bezieht sich auf das Subjekt „soror“ zurück – deshalb „EIGENES“. (Bei Neutra wie „dōnum“ sehen Akkusativ Maskulinum und Neutrum gleich aus: suum.)"
+            },
+            {
+                latin: "Magister discipulōs et ___ tabulās videt.",
+                translation: "Der Lehrer sieht die Schüler und DEREN Wachstäfelchen.",
+                correct: "eōrum",
+                options: ["eōrum", "suās", "tuās", "nostrās"],
+                explanation: "<strong>eōrum</strong> bezieht sich auf „discipulōs“ (Plural), nicht auf das Subjekt „magister“ – deshalb „DEREN“."
+            },
+            {
+                latin: "Amicus amicam et ___ villam videt.",
+                translation: "Der Freund sieht die Freundin und DEREN Landhaus.",
+                correct: "eius",
+                options: ["eius", "suam", "tuam", "nostram"],
+                explanation: "<strong>eius</strong> bezieht sich auf „amicam“, nicht auf das Subjekt „amicus“ – deshalb „DEREN“ (= der Freundin ihres)."
+            }
+        ];
+
+        let orderedCases = [];
+        let currentIdx = 0;
+        let correctCount = 0;
+        let roundLocked = false;
+        let currentMode = null; // 'possessiv' oder 'personal'
+
+        // Modus → Achievement-Kategorie (siehe CATEGORY_META in progress.js)
+        const MODE_CATEGORY = {
+            possessiv:    'Possessivpronomen',
+            personal:     'Personalpronomen',
+            demonstrativ: 'Demonstrativpronomen',
+            relativ:      'Relativpronomen'
+        };
+        let activePool = [];
+
+        // --- Personalpronomina: Daten und Engine ---
+        const personalPronouns = [
+            { nom: "ego", akk: "mē", de_nom: "ich", de_akk: "mich", personIdx: 0 },
+            { nom: "tū", akk: "tē", de_nom: "du", de_akk: "dich", personIdx: 1 },
+            { nom: "nōs", akk: "nōs", de_nom: "wir", de_akk: "uns", personIdx: 3 },
+            { nom: "vōs", akk: "vōs", de_nom: "ihr", de_akk: "euch", personIdx: 4 }
+        ];
+        const personLabels = ["1. Person Singular", "2. Person Singular", "3. Person Singular", "1. Person Plural", "2. Person Plural", "3. Person Plural"];
+
+        // Identische Konjugations-Engine wie im Formen-Kastell / Compone!
+        // Adapter: liefert dasselbe Format wie zuvor [1.Sg,2.Sg,3.Sg,1.Pl,2.Pl,3.Pl] Präsens Aktiv,
+        // nutzt aber intern VerbEngine (deckt alle unregelmäßigen Verben/Deponentien korrekt ab).
+        function conjugateVerb(verbObj) {
+            if (!VerbEngine.isSupported(verbObj)) return [verbObj.middle, '', '', '', '', ''];
+            return VerbEngine.getFormsForTempus(verbObj, 'Präsens');
+        }
+
+        // Adapter: liefert dasselbe Format wie zuvor {forms:[...], gender}, nutzt intern NounEngine.
+        function declineNoun(nounObj) {
+            const t = NounEngine.decline(nounObj);
+            return { forms: [t.sg.nom, t.sg.gen, t.sg.akk, t.pl.nom, t.pl.gen, t.pl.akk], gender: t.gender };
+        }
+
+        // Verben, die sinnvoll eine PERSON als direktes Akkusativobjekt nehmen können
+        // (z.B. "sehen", "rufen", "grüßen" - im Gegensatz zu intransitiven Verben wie
+        // "sitzen" oder Verben, die den Dativ verlangen wie "antworten").
+        const personObjectVerbs = [
+            "vidēre", "audīre", "rogāre", "vocāre", "salūtāre", "amāre", "docēre", "pūnīre", "monēre",
+            "dūcere", "accūsāre", "incitāre", "arcēre", "tangere", "spectāre", "cōnspicere", "servāre",
+            "adiuvāre", "neglegere", "dēlectāre", "instruere", "obsecrāre", "portāre", "tenēre",
+            "quaerere", "alere", "vincere", "capere", "fugere", "manēre", "praestāre", "reddere", "rīdēre"
+        ];
+
+        function pronounDistractors(correct) {
+            const allForms = [];
+            personalPronouns.forEach(p => { allForms.push(p.nom); allForms.push(p.akk); });
+            const unique = [...new Set(allForms)].filter(f => f !== correct);
+            return unique.sort(() => Math.random() - 0.5).slice(0, 3);
+        }
+
+        function generatePersonalRound(verbPool, nounPool) {
+            const pron = personalPronouns[Math.floor(Math.random() * personalPronouns.length)];
+            const isSubject = Math.random() < 0.5;
+
+            let latin, correct, translation, explanation;
+            const invariantNote = (pron.nom === pron.akk)
+                ? ` (${pron.nom} sieht in Nominativ und Akkusativ gleich aus - das ist echtes Latein, kein Zufall!)`
+                : "";
+
+            if (isSubject) {
+                // Subjekt-Sätze brauchen kein Objekt - so passt JEDES Verb, egal ob transitiv oder nicht.
+                const verb = verbPool[Math.floor(Math.random() * verbPool.length)];
+                const verbForms = conjugateVerb(verb);
+                const verbForm = verbForms[pron.personIdx];
+                latin = `___ ${verbForm}.`;
+                correct = pron.nom;
+                translation = `Gesucht: <strong>${pron.de_nom.toUpperCase()}</strong> als Subjekt (Nominativ). (Verb: „${verb.meaning}“)`;
+                explanation = `Als Subjekt braucht man den <strong>Nominativ</strong>: <strong>${pron.nom}</strong> (${pron.de_nom}). Das Verb „${verbForm}“ bestätigt das (${personLabels[pron.personIdx]}).${invariantNote}`;
+            } else {
+                // Objekt-Sätze: das Pronomen selbst ist das Akkusativobjekt, also nur Verben
+                // verwenden, die sinnvoll eine Person als Objekt nehmen können.
+                const objectCapableVerbs = verbPool.filter(v => personObjectVerbs.includes(v.latin));
+                const pool = objectCapableVerbs.length > 0 ? objectCapableVerbs : verbPool;
+                const verb = pool[Math.floor(Math.random() * pool.length)];
+                const noun = nounPool[Math.floor(Math.random() * nounPool.length)];
+                const nounForms = declineNoun(noun).forms;
+                const verbForm = conjugateVerb(verb)[2]; // 3. Person Singular, da das Subjekt ein Nomen ist
+                latin = `${nounForms[0]} ___ ${verbForm}.`;
+                correct = pron.akk;
+                translation = `Gesucht: <strong>${pron.de_akk.toUpperCase()}</strong> als Objekt (Akkusativ). (Subjekt: „${noun.meaning}“ · Verb: „${verb.meaning}“)`;
+                explanation = `Als Objekt braucht man den <strong>Akkusativ</strong>: <strong>${pron.akk}</strong> (${pron.de_akk}). Das Subjekt „${nounForms[0]}“ ist im Nominativ, das Verb steht deshalb in der 3. Person.${invariantNote}`;
+            }
+
+            const options = [correct, ...pronounDistractors(correct)].sort(() => Math.random() - 0.5);
+            return { latin, translation, correct, options, explanation, _trackWord: pron.nom };
+        }
+
+        window.onload = function() {
+            document.getElementById('btn-start-possessiv').addEventListener('click', startPossessiv);
+            document.getElementById('btn-start-personal').addEventListener('click', promptLessonsAndStartPersonal);
+            document.getElementById('btn-start-demonstrativ').addEventListener('click', promptLessonsAndStartDemonstrativ);
+            document.getElementById('btn-start-relativ').addEventListener('click', promptLessonsAndStartRelativ);
+            document.getElementById('btn-restart').addEventListener('click', backToModeSelect);
+            document.getElementById('btn-next-case').addEventListener('click', nextCase);
+            for (let i = 0; i < 4; i++) {
+                document.getElementById('opt' + i).addEventListener('click', function() { selectOption(i); });
+            }
+            updateOverallProgressNote();
+        };
+
+        function updateOverallProgressNote() {
+            const pPossessiv = LudiProgress.getGameProgress('possessiv');
+            const pPersonal = LudiProgress.getGameProgress('personalpronomen');
+            let parts = [];
+            if (pPossessiv) parts.push(`Possessiv: ${pPossessiv.bestScore}/${pPossessiv.maxScore}`);
+            if (pPersonal) parts.push(`Personal: ${pPersonal.bestScore}/${pPersonal.maxScore}`);
+            document.getElementById('overall-progress-note').innerText =
+                parts.length ? `🏆 Bestleistungen bisher — ${parts.join(' · ')}` : '';
+        }
+
+        function backToModeSelect() {
+            document.getElementById('end-box').style.display = 'none';
+            document.getElementById('start-screen').style.display = 'block';
+            updateOverallProgressNote();
+        }
+
+        function startPossessiv() {
+            currentMode = 'possessiv';
+            orderedCases = [...cases].sort(() => Math.random() - 0.5);
+            currentIdx = 0;
+            correctCount = 0;
+
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('end-box').style.display = 'none';
+            document.getElementById('combat-box').style.display = 'flex';
+
+            showCase();
+        }
+
+        // Vollständige, hochirreguläre Deklinationstabellen (keine Ableitungsformel möglich).
+        const DEMONSTRATIVE_PRONOUNS = {
+            hic: {
+                label: 'hic, haec, hoc',
+                m: { sg: { nom: 'hic', gen: 'huius', dat: 'huic', akk: 'hunc', abl: 'hōc' }, pl: { nom: 'hī', gen: 'hōrum', dat: 'hīs', akk: 'hōs', abl: 'hīs' } },
+                f: { sg: { nom: 'haec', gen: 'huius', dat: 'huic', akk: 'hanc', abl: 'hāc' }, pl: { nom: 'hae', gen: 'hārum', dat: 'hīs', akk: 'hās', abl: 'hīs' } },
+                n: { sg: { nom: 'hoc', gen: 'huius', dat: 'huic', akk: 'hoc', abl: 'hōc' }, pl: { nom: 'haec', gen: 'hōrum', dat: 'hīs', akk: 'haec', abl: 'hīs' } }
+            },
+            ille: {
+                label: 'ille, illa, illud',
+                m: { sg: { nom: 'ille', gen: 'illīus', dat: 'illī', akk: 'illum', abl: 'illō' }, pl: { nom: 'illī', gen: 'illōrum', dat: 'illīs', akk: 'illōs', abl: 'illīs' } },
+                f: { sg: { nom: 'illa', gen: 'illīus', dat: 'illī', akk: 'illam', abl: 'illā' }, pl: { nom: 'illae', gen: 'illārum', dat: 'illīs', akk: 'illās', abl: 'illīs' } },
+                n: { sg: { nom: 'illud', gen: 'illīus', dat: 'illī', akk: 'illud', abl: 'illō' }, pl: { nom: 'illa', gen: 'illōrum', dat: 'illīs', akk: 'illa', abl: 'illīs' } }
+            },
+            is: {
+                label: 'is, ea, id',
+                m: { sg: { nom: 'is', gen: 'eius', dat: 'eī', akk: 'eum', abl: 'eō' }, pl: { nom: 'eī', gen: 'eōrum', dat: 'eīs', akk: 'eōs', abl: 'eīs' } },
+                f: { sg: { nom: 'ea', gen: 'eius', dat: 'eī', akk: 'eam', abl: 'eā' }, pl: { nom: 'eae', gen: 'eārum', dat: 'eīs', akk: 'eās', abl: 'eīs' } },
+                n: { sg: { nom: 'id', gen: 'eius', dat: 'eī', akk: 'id', abl: 'eō' }, pl: { nom: 'ea', gen: 'eōrum', dat: 'eīs', akk: 'ea', abl: 'eīs' } }
+            }
+        };
+        const RELATIVE_PRONOUN = {
+            m: { sg: { nom: 'quī', gen: 'cuius', dat: 'cui', akk: 'quem', abl: 'quō' }, pl: { nom: 'quī', gen: 'quōrum', dat: 'quibus', akk: 'quōs', abl: 'quibus' } },
+            f: { sg: { nom: 'quae', gen: 'cuius', dat: 'cui', akk: 'quam', abl: 'quā' }, pl: { nom: 'quae', gen: 'quārum', dat: 'quibus', akk: 'quās', abl: 'quibus' } },
+            n: { sg: { nom: 'quod', gen: 'cuius', dat: 'cui', akk: 'quod', abl: 'quō' }, pl: { nom: 'quae', gen: 'quōrum', dat: 'quibus', akk: 'quae', abl: 'quibus' } }
+        };
+        const CASE_KEYS = ['nom', 'gen', 'dat', 'akk', 'abl'];
+        const CASE_LABELS = { nom: 'Nominativ', gen: 'Genitiv', dat: 'Dativ', akk: 'Akkusativ', abl: 'Ablativ' };
+        const GENDER_LABELS = { m: 'maskulin', f: 'feminin', n: 'neutrum' };
+
+        /** Demonstrativpronomen (hic/ille/is): reine KNG-Kongruenz-Übung, wie bei einem Adjektiv. */
+        function generateDemonstrativRound(nounPool) {
+            const pronounKeys = ['hic', 'ille', 'is'];
+            const pronounKey = pronounKeys[Math.floor(Math.random() * pronounKeys.length)];
+            const table = DEMONSTRATIVE_PRONOUNS[pronounKey];
+
+            const validNouns = nounPool.filter(n => {
+                const d = NounEngine.decline(n);
+                return CASE_KEYS.every(c => d.sg[c] !== null && d.pl[c] !== null);
+            });
+            const pool = validNouns.length > 0 ? validNouns : nounPool;
+            const noun = pool[Math.floor(Math.random() * pool.length)];
+            const nounDecl = NounEngine.decline(noun);
+            const gender = nounDecl.gender === 'n' ? 'n' : (nounDecl.gender === 'f' ? 'f' : 'm');
+
+            const caseKey = CASE_KEYS[Math.floor(Math.random() * CASE_KEYS.length)];
+            const numKey = Math.random() < 0.5 ? 'sg' : 'pl';
+            const nounForm = nounDecl[numKey][caseKey];
+            const correct = table[gender][numKey][caseKey];
+
+            const distractorSet = new Set();
+            ['m', 'f', 'n'].filter(g => g !== gender).forEach(g => distractorSet.add(table[g][numKey][caseKey]));
+            CASE_KEYS.filter(c => c !== caseKey).sort(() => Math.random() - 0.5).slice(0, 2).forEach(c => distractorSet.add(table[gender][numKey][c]));
+            distractorSet.add(table[gender][numKey === 'sg' ? 'pl' : 'sg'][caseKey]);
+            distractorSet.delete(correct);
+            let distractors = [...distractorSet].sort(() => Math.random() - 0.5).slice(0, 3);
+            while (distractors.length < 3) {
+                const g = ['m', 'f', 'n'][Math.floor(Math.random() * 3)];
+                const n2 = ['sg', 'pl'][Math.floor(Math.random() * 2)];
+                const c = CASE_KEYS[Math.floor(Math.random() * 5)];
+                const f = table[g][n2][c];
+                if (f !== correct && !distractors.includes(f)) distractors.push(f);
+            }
+
+            return {
+                latin: `___ ${nounForm}`,
+                translation: `Gesucht: <strong>${table.label}</strong> passend zu „${nounForm}“ (${CASE_LABELS[caseKey]} ${numKey === 'sg' ? 'Singular' : 'Plural'}, ${GENDER_LABELS[gender]}).`,
+                correct: correct,
+                options: [correct, ...distractors].sort(() => Math.random() - 0.5),
+                explanation: `<strong>${correct}</strong> stimmt in Kasus (${CASE_LABELS[caseKey]}), Numerus und Genus mit „${nounForm}“ überein - genau wie bei einem Adjektiv.`,
+                _trackWord: pronounKey
+            };
+        }
+
+        /**
+         * Relativpronomen (quī/quae/quod): Genus/Numerus kommen vom Bezugswort, der KASUS
+         * aber von der Funktion im Nebensatz - das ist der zentrale Lernpunkt dieser Übung.
+         */
+        function generateRelativeRound(nounPool) {
+            const validNouns = nounPool.filter(n => {
+                const d = NounEngine.decline(n);
+                return CASE_KEYS.every(c => d.sg[c] !== null && d.pl[c] !== null);
+            });
+            const pool = validNouns.length > 0 ? validNouns : nounPool;
+            const antecedent = pool[Math.floor(Math.random() * pool.length)];
+            const antDecl = NounEngine.decline(antecedent);
+            const gender = antDecl.gender === 'n' ? 'n' : (antDecl.gender === 'f' ? 'f' : 'm');
+
+            const antCase = CASE_KEYS[Math.floor(Math.random() * CASE_KEYS.length)];
+            const antNum = Math.random() < 0.5 ? 'sg' : 'pl';
+            const antForm = antDecl[antNum][antCase];
+
+            const functions = [
+                { case: 'nom', label: 'Subjekt des Nebensatzes' },
+                { case: 'akk', label: 'Akkusativobjekt des Nebensatzes' },
+                { case: 'gen', label: 'Genitivattribut im Nebensatz' },
+                { case: 'dat', label: 'Dativobjekt des Nebensatzes' },
+                { case: 'abl', label: 'nach einer Präposition mit Ablativ im Nebensatz' }
+            ];
+            const func = functions[Math.floor(Math.random() * functions.length)];
+            const relNum = antNum;
+            const correct = RELATIVE_PRONOUN[gender][relNum][func.case];
+
+            const distractorSet = new Set();
+            if (func.case !== antCase) distractorSet.add(RELATIVE_PRONOUN[gender][relNum][antCase]);
+            ['m', 'f', 'n'].filter(g => g !== gender).forEach(g => distractorSet.add(RELATIVE_PRONOUN[g][relNum][func.case]));
+            CASE_KEYS.filter(c => c !== func.case).sort(() => Math.random() - 0.5).slice(0, 2).forEach(c => distractorSet.add(RELATIVE_PRONOUN[gender][relNum][c]));
+            distractorSet.delete(correct);
+            let distractors = [...distractorSet].sort(() => Math.random() - 0.5).slice(0, 3);
+            while (distractors.length < 3) {
+                const g = ['m', 'f', 'n'][Math.floor(Math.random() * 3)];
+                const n2 = ['sg', 'pl'][Math.floor(Math.random() * 2)];
+                const c = CASE_KEYS[Math.floor(Math.random() * 5)];
+                const f = RELATIVE_PRONOUN[g][n2][c];
+                if (f !== correct && !distractors.includes(f)) distractors.push(f);
+            }
+
+            return {
+                latin: `${antForm} (${CASE_LABELS[antCase]}), ___ ...`,
+                translation: `Bezugswort: „${antForm}“ (${antecedent.meaning}, ${GENDER_LABELS[gender]}, ${antNum === 'sg' ? 'Singular' : 'Plural'}). Gesucht: quī/quae/quod als <strong>${func.label}</strong>.`,
+                correct: correct,
+                options: [correct, ...distractors].sort(() => Math.random() - 0.5),
+                explanation: `<strong>${correct}</strong>: Genus (${GENDER_LABELS[gender]}) und Numerus kommen vom Bezugswort „${antForm}“ - der <strong>Kasus</strong> (${CASE_LABELS[func.case]}) aber von der Funktion „${func.label}“. Der Kasus des Bezugsworts selbst (${CASE_LABELS[antCase]}) spielt für die Pronomen-Form KEINE Rolle!`,
+                _trackWord: 'quī'
+            };
+        }
+
+        function promptLessonsAndStartDemonstrativ() {
+            if (typeof globalVocabularyPool === 'undefined') { alert("Fehler: vocabulary.js nicht gefunden!"); return; }
+            LessonFilter.show(globalVocabularyPool, function(filteredPool) {
+                activePool = filteredPool;
+                const nounPool = activePool.filter(v => v.type === 'noun' && !v.latin.includes(' ') && !v.middle.includes('Pl.'));
+                if (nounPool.length < 1) { alert("In den ausgewählten Lektionen gibt es noch zu wenige Substantive. Bitte wähle weitere Lektionen mit aus."); return; }
+                currentMode = 'demonstrativ';
+                orderedCases = [];
+                for (let i = 0; i < 12; i++) orderedCases.push(generateDemonstrativRound(nounPool));
+                currentIdx = 0; correctCount = 0;
+                document.getElementById('start-screen').style.display = 'none';
+                document.getElementById('end-box').style.display = 'none';
+                document.getElementById('combat-box').style.display = 'flex';
+                showCase();
+            });
+        }
+
+        function promptLessonsAndStartRelativ() {
+            if (typeof globalVocabularyPool === 'undefined') { alert("Fehler: vocabulary.js nicht gefunden!"); return; }
+            LessonFilter.show(globalVocabularyPool, function(filteredPool) {
+                activePool = filteredPool;
+                const nounPool = activePool.filter(v => v.type === 'noun' && !v.latin.includes(' ') && !v.middle.includes('Pl.'));
+                if (nounPool.length < 1) { alert("In den ausgewählten Lektionen gibt es noch zu wenige Substantive. Bitte wähle weitere Lektionen mit aus."); return; }
+                currentMode = 'relativ';
+                orderedCases = [];
+                for (let i = 0; i < 12; i++) orderedCases.push(generateRelativeRound(nounPool));
+                currentIdx = 0; correctCount = 0;
+                document.getElementById('start-screen').style.display = 'none';
+                document.getElementById('end-box').style.display = 'none';
+                document.getElementById('combat-box').style.display = 'flex';
+                showCase();
+            });
+        }
+
+        function promptLessonsAndStartPersonal() {
+            if (typeof globalVocabularyPool === 'undefined') {
+                alert("Fehler: vocabulary.js nicht gefunden!"); return;
+            }
+            LessonFilter.show(globalVocabularyPool, function(filteredPool) {
+                activePool = filteredPool;
+                startPersonal();
+            });
+        }
+
+        function startPersonal() {
+            const verbPool = activePool.filter(v => v.type === 'verb' && v.gram_class !== 'Deponens' && v.gram_class !== 'unregelmäßig (Passiv von facere)');
+            const nounPool = activePool.filter(v =>
+                v.type === 'noun' && !v.latin.includes(' ') && !v.middle.includes('Pl.')
+            );
+
+            if (verbPool.length < 1 || nounPool.length < 1) {
+                alert("In den ausgewählten Lektionen gibt es noch zu wenige Verben/Nomen für dieses Spiel. Bitte wähle weitere Lektionen mit aus.");
+                return;
+            }
+
+            currentMode = 'personal';
+            orderedCases = [];
+            for (let i = 0; i < 12; i++) {
+                orderedCases.push(generatePersonalRound(verbPool, nounPool));
+            }
+            currentIdx = 0;
+            correctCount = 0;
+
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('end-box').style.display = 'none';
+            document.getElementById('combat-box').style.display = 'flex';
+
+            showCase();
+        }
+
+        function showCase() {
+            roundLocked = false;
+            document.getElementById('feedback-box').style.display = 'none';
+
+            const c = orderedCases[currentIdx];
+
+            document.getElementById('case-number').innerText = `FALL ${currentIdx + 1} VON ${orderedCases.length}`;
+            document.getElementById('progress-bar').style.width = (currentIdx / orderedCases.length * 100) + '%';
+
+            document.getElementById('latin-sentence').innerHTML = c.latin.replace('___', '<span class="blank">___</span>');
+            document.getElementById('translation-hint').innerHTML = c.translation.replace(/\b(EIGENEN|EIGENES|DESSEN|DEREN)\b/, '<span class="blank">$1</span>');
+
+            const shuffledOptions = [...c.options].sort(() => Math.random() - 0.5);
+            for (let i = 0; i < 4; i++) {
+                const btn = document.getElementById('opt' + i);
+                btn.innerText = shuffledOptions[i];
+                btn.className = 'opt-btn';
+                btn.disabled = false;
+            }
+        }
+
+        function selectOption(idx) {
+            if (roundLocked) return;
+            roundLocked = true;
+
+            for (let i = 0; i < 4; i++) document.getElementById('opt' + i).disabled = true;
+
+            const c = orderedCases[currentIdx];
+            const selectedBtn = document.getElementById('opt' + idx);
+            const selectedText = selectedBtn.innerText;
+            const isCorrect = (selectedText === c.correct);
+
+            const fbBox = document.getElementById('feedback-box');
+            const fbTitle = document.getElementById('fb-title');
+            const fbText = document.getElementById('fb-text');
+            fbBox.style.display = 'flex';
+
+            if (isCorrect) {
+                correctCount++;
+                selectedBtn.classList.add('correct');
+                fbTitle.innerText = "🔍 FALL GELÖST!";
+                fbTitle.style.color = "var(--richtig)";
+                fbText.innerHTML = c.explanation;
+            } else {
+                selectedBtn.classList.add('wrong');
+                for (let i = 0; i < 4; i++) {
+                    if (document.getElementById('opt' + i).innerText === c.correct) {
+                        document.getElementById('opt' + i).classList.add('correct');
+                    }
+                }
+                fbTitle.innerText = "🧩 NICHT GANZ...";
+                fbTitle.style.color = "#F44336";
+                fbText.innerHTML = c.explanation;
+            }
+
+            if (currentMode !== 'possessiv' && c._trackWord) {
+                LudiProgress.recordVocabAttempt(c._trackWord, isCorrect);
+            }
+
+            // Kategorie ist die Pronomenart. Auch der Possessiv-Modus zählt hier mit -
+            // er ist nur beim Vokabel-Tracking ausgenommen, weil er mit handkuratierten
+            // Sätzen statt mit einzelnen Lemmata arbeitet.
+            const unlock = LudiProgress.recordCategoryAttempt(MODE_CATEGORY[currentMode], isCorrect);
+            if (unlock) AchievementToast.show(unlock);
+        }
+
+        function nextCase() {
+            currentIdx++;
+            if (currentIdx >= orderedCases.length) {
+                endGame();
+            } else {
+                showCase();
+            }
+        }
+
+        function endGame() {
+            document.getElementById('combat-box').style.display = 'none';
+            document.getElementById('feedback-box').style.display = 'none';
+
+            const endBox = document.getElementById('end-box');
+            const title = document.getElementById('end-title');
+            const msg = document.getElementById('end-msg');
+            endBox.style.display = 'block';
+
+            const saveIds = { personal: 'personalpronomen', possessiv: 'possessiv', demonstrativ: 'demonstrativpronomen', relativ: 'relativpronomen' };
+            LudiProgress.saveGameResult(saveIds[currentMode] || currentMode, correctCount, orderedCases.length);
+
+            if (correctCount === orderedCases.length) {
+                title.innerText = "🏛️ MEISTERDETEKTIV!";
+                title.style.color = "var(--richtig)";
+            } else if (correctCount >= orderedCases.length * 0.6) {
+                title.innerText = "🔍 GUTE ARBEIT!";
+                title.style.color = "var(--gold)";
+            } else {
+                title.innerText = "🧩 WEITER ÜBEN!";
+                title.style.color = "var(--falsch)";
+            }
+
+            const endMessages = {
+                personal: `Du hast <strong>${correctCount} von ${orderedCases.length}</strong> Fällen richtig gelöst.<br><br>Denk dran: Subjekt = <strong>Nominativ</strong> (ego, tū, nōs, vōs), Objekt = <strong>Akkusativ</strong> (mē, tē, nōs, vōs).`,
+                possessiv: `Du hast <strong>${correctCount} von ${orderedCases.length}</strong> Fällen richtig gelöst.<br><br>Denk dran: <strong>suus/sua/suum</strong> = gehört dem Subjekt selbst. <strong>eius/eōrum</strong> = gehört jemand anderem.`,
+                demonstrativ: `Du hast <strong>${correctCount} von ${orderedCases.length}</strong> Fällen richtig gelöst.<br><br>Denk dran: hic/ille/is stimmen in Kasus, Numerus und Genus mit ihrem Bezugswort überein - genau wie ein Adjektiv.`,
+                relativ: `Du hast <strong>${correctCount} von ${orderedCases.length}</strong> Fällen richtig gelöst.<br><br>Denk dran: Genus und Numerus von quī/quae/quod kommen vom Bezugswort - der <strong>Kasus</strong> aber von der Funktion im Nebensatz!`
+            };
+            msg.innerHTML = endMessages[currentMode] || '';
+        }
+    </script>
+</body>
+</html>

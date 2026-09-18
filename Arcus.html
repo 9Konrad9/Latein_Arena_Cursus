@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Arcus - Der AcI-Bogen</title>
+    <script src="vocabulary.js"></script>
+    <script src="progress.js"></script>
+    <script src="achievementToast.js"></script>
+    <script src="lessonFilter.js"></script>
+    <script src="nounEngine.js"></script>
+    <script src="verbEngine.js"></script>
+    <script src="sentenceEngine.js"></script>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        :root {
+            --stone: #b9ac93;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--wand);
+            color: var(--ink);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 15px;
+        }
+
+        h1 {
+            color: var(--pompeji);
+            font-family: var(--font-display);
+            text-transform: uppercase;
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+            text-align: center;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 4px rgba(80, 60, 30, 0.22);
+        }
+        .subtitle { font-family: var(--font-display); font-style: italic; color: var(--ink-soft); margin-bottom: 15px; text-align: center; }
+
+        .game-container {
+            width: 100%;
+            max-width: 700px;
+            background: var(--putz);
+            border: 4px solid var(--bronze);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(80, 60, 30, 0.22);
+            position: relative;
+            min-height: 500px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .start-screen { text-align: center; padding: 10px; }
+        .notice-box em { color: var(--ink); }
+
+
+        /* Der Balken saß so dicht unter der Rundenanzeige, dass sein Rand wie ein
+           Durchstreichen wirkte - und auf hellem Putz war seine Bahn unsichtbar. */
+        .round-number { text-align: center; font-size: 0.9rem; color: var(--ink-soft); margin-bottom: 12px; letter-spacing: 1px; }
+        .progress-bar-container { height: 8px; border-radius: 4px; margin-bottom: 16px; }
+
+        /* --- Der Bogen ---
+           Der Abstand unten trägt die beiden Beschriftungen, die unter den
+           Pfeilern hängen - mit den früheren 10 px lagen sie unter der Schriftrolle. */
+        .arch-area {
+            display: flex; justify-content: center; margin-bottom: 28px;
+            position: relative; z-index: 11;   /* über dem Rückmeldungs-Schleier */
+        }
+        /* Vier Lagen desselben Bildes: die unterste blass und grau als „hier
+           entsteht ein Bogen", darüber drei farbige Kopien, jede auf ihr Bauteil
+           beschnitten und zunächst unsichtbar. Kopien statt einer Schleier-Fläche,
+           weil das Bild grosse durchsichtige Bereiche hat - ein heller Schleier
+           läge dort als Kasten über der Seite.
+           Die Prozentwerte sind am Bild gemessen (600x464): Der Schlussstein misst
+           oben 39,6-59,6 %, unten (an der Bogenlaibung, 34 % Höhe) 45,2-54,0 %. */
+        #arch { position: relative; width: 300px; }
+        #arch img { display: block; width: 100%; }
+
+        .arch-ghost { opacity: 0.22; filter: grayscale(1); }
+
+        .arch-teil {
+            position: absolute; top: 0; left: 0;
+            opacity: 0;
+            transition: opacity 0.45s ease;
+            pointer-events: none;
+        }
+        .arch-teil.set { opacity: 1; }
+        .arch-teil.links   { clip-path: polygon(0 0, 39.6% 0, 45.2% 34%, 45.2% 100%, 0 100%); }
+        .arch-teil.rechts  { clip-path: polygon(59.6% 0, 100% 0, 100% 100%, 54.0% 100%, 54.0% 34%); }
+        .arch-teil.schluss { clip-path: polygon(39.6% 0, 59.6% 0, 54.0% 34%, 45.2% 34%); }
+
+        .arch-label {
+            position: absolute; bottom: -16px;
+            font-family: var(--font-body); font-size: 0.68rem;
+            color: var(--ink-soft); letter-spacing: 0.5px;
+            transition: color 0.35s ease;
+        }
+        #lbl-left  { left: 2%; }
+        #lbl-right { right: 2%; }
+        .arch-label.set { color: var(--ink); font-weight: bold; }
+
+        /* --- Der Satz auf der Schriftrolle ---
+           Dreiteilig: Das Pergamentband dehnt sich per border-image (nur die wellige
+           Kante bleibt formstabil), die beiden Holzwalzen sitzen als ::before/::after
+           an den Enden und ragen bewusst etwas über das Blatt hinaus.
+           Schnittwerte am Bild gemessen (900x190, wellige Kante 8 bzw. 6 px) - sie sind
+           Bildpixel und skalieren NICHT mit, bei neuem Bild also neu messen.
+           Inneres Feld #f6e8cb, dazu Tintenbraun: Kontrast 11,3. */
+        .sentence-box {
+            position: relative;
+            border-style: solid;
+            /* Rand schmaler als der Schnitt: Er muss nur die wellige Kante tragen,
+               kein Rahmen. Das lässt dem Satz rund 40 px mehr Breite. */
+            border-width: 12px 24px 10px 24px;
+            border-image: url('assets/ui/pergament.png') 12 42 10 42 fill stretch;
+            background: none;
+            color: #3b2a18;
+            padding: 12px 6px;
+            margin: 0 40px 18px;
+            text-align: center;
+            min-height: 92px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .sentence-box::before,
+        .sentence-box::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 42px;
+            height: 132%;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            pointer-events: none;
+        }
+        .sentence-box::before { left: -36px; background-image: url('assets/ui/rolle-links.png'); }
+        .sentence-box::after { right: -36px; background-image: url('assets/ui/rolle-rechts.png'); }
+
+        .latin-word {
+            font-family: var(--font-display); font-size: 1.4rem; font-weight: bold;
+            display: inline-block; margin: 4px 6px; padding: 4px 9px; border-radius: 6px;
+            cursor: pointer; border: 2px solid transparent; transition: all 0.15s;
+        }
+        .latin-word:hover { background: rgba(128,0,0,0.10); }
+        .latin-word.found-aciSub { background: #6f3487; color: #fff; cursor: default; }
+        .latin-word.found-aciInf { background: #1f5f89; color: #fff; cursor: default; }
+        .latin-word.rest { color: #6f6049; cursor: default; /* kontrast-ok: 5,03 auf dem Pergament #f6e8cb, nicht auf dem Wandgrund */ }
+        .latin-word.wrong-flash { background: var(--falsch); color: #fff; }
+
+        @media (max-width: 560px) {
+            .sentence-box { margin: 0 26px 15px; min-height: 76px; border-width: 10px 28px 8px 28px; }
+            .sentence-box::before, .sentence-box::after { width: 30px; }
+            .sentence-box::before { left: -25px; }
+            .sentence-box::after { right: -25px; }
+            .latin-word { font-size: 1.15rem; margin: 3px 4px; padding: 3px 6px; }
+        }
+
+        .instruction-line {
+            text-align: center; font-size: 1.1rem; font-weight: bold; color: var(--pompeji);
+            margin-bottom: 14px; min-height: 2.8em;
+        }
+        .instruction-line small { display: block; font-weight: normal; font-size: 0.85rem; color: var(--ink-soft); margin-top: 4px; }
+
+        /* --- Zeitverhältnis --- */
+        .time-choice { display: none; gap: 12px; justify-content: center; flex-wrap: wrap; }
+        /* Drei Zustände derselben Tafel: stumpfe Bronze im Ruhezustand, goldene mit
+           Lorbeer bei richtig, gesprungener Stein bei falsch. Nur die Bildquelle
+           wechselt, Form und Maße bleiben - dadurch springt beim Umschalten nichts. */
+        .time-btn {
+            border-style: solid;
+            border-width: 13px 19px;
+            border-image: url('assets/ui/plaque.png') 40 55 40 55 fill stretch;
+            background: none;
+            color: #2a2118;
+            padding: 6px 10px; min-width: 150px;
+            font-size: 1.05rem; font-weight: bold; font-family: var(--font-display);
+            cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+            text-shadow: 0 1px 0 rgba(255,245,220,0.35);
+        }
+        .time-btn:not(:disabled):active { transform: translateY(2px); }
+        .time-btn small { display: block; font-family: var(--font-body); font-weight: normal; font-size: 0.72rem; color: #4a3a26; margin-top: 3px; text-shadow: none; }
+        .time-btn.correct { border-image-source: url('assets/ui/plaque-richtig.png'); }
+        .time-btn.wrong { border-image-source: url('assets/ui/plaque-falsch.png'); }
+
+        /* --- Feedback --- */
+        /* Der Schleier deckt die Karte zu, der Bogen liegt darüber (z-index 11):
+           Sonst verschwände genau in dem Moment, in dem er fertig ist, das
+           Bauwerk hinter der Erklärung. Der Text setzt sich deshalb nach unten ab. */
+        .feedback-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(244, 236, 219, 0.96); border-radius: 12px;
+            display: none; flex-direction: column; align-items: center; justify-content: flex-end;
+            padding: 25px; text-align: center; z-index: 10;
+        }
+        .feedback-title { font-family: var(--font-display); font-size: 1.7rem; margin-bottom: 15px; }
+        .feedback-explanation { font-size: 1.05rem; line-height: 1.55; margin-bottom: 25px; max-width: 520px; }
+        .feedback-explanation strong { color: var(--pompeji); }
+
+        .end-treasury-grid { font-size: 1rem; color: var(--ink-soft); line-height: 1.7; }
+    </style>
+</head>
+<body>
+<a href="index.html" id="global-menu-btn" onclick="return confirm('Zurück zum Hauptmenü? Der aktuelle Fortschritt in dieser Runde geht verloren.');" title="Zurück zum Hauptmenü">🏠</a>
+
+    <!-- Reiner Zierrat: hinter dem Inhalt, ohne Klickfläche, auf schmalen Schirmen aus -->
+    <div class="saeule-links" aria-hidden="true"></div>
+    <div class="saeule-rechts" aria-hidden="true"></div>
+
+    <h1>🏛️ Arcus</h1>
+    <div class="subtitle">Der AcI-Bogen</div>
+
+    <div class="trenner" aria-hidden="true"></div>
+
+    <div class="game-container">
+
+        <!-- START -->
+        <div id="start-screen" class="start-screen">
+            <div class="notice-box">
+                <h3>🏛️ Der Auftrag</h3>
+                <p>Ein <strong>AcI</strong> trägt sich selbst — wie ein römischer Bogen. Er braucht zwei Pfeiler:</p>
+                <p style="margin-top:10px;"><span class="step">1</span> den <strong>Subjektsakkusativ</strong> — er steht im Akkusativ, ist aber <em>kein Objekt</em>, sondern das Subjekt des AcI.</p>
+                <p style="margin-top:6px;"><span class="step">2</span> den <strong>Infinitiv</strong> — das Prädikat des AcI.</p>
+                <p style="margin-top:10px;">Ab Lektion 10 kommt der <strong>Schlussstein</strong> dazu: Ist die Handlung <em>gleichzeitig</em> oder <em>vorzeitig</em>?</p>
+                <p style="margin-top:10px; color: var(--ink-soft); font-size:0.92rem;">Der AcI wird in Lektion 8 eingeführt — wähle also mindestens Lektion 8 mit aus.</p>
+            </div>
+            <button class="start-btn" id="btn-start">Bogen bauen</button>
+        </div>
+
+        <!-- SPIEL -->
+        <div id="game-box" style="display:none; flex-direction:column; flex-grow:1;">
+            <div class="round-number" id="round-number">SATZ 1 VON 8</div>
+            <div class="progress-bar-container"><div class="progress-bar" id="progress-bar"></div></div>
+
+            <div class="arch-area">
+                <!-- Der Bogen ist ein Bild, viermal übereinander: einmal blass als
+                     Umriss, dreimal auf je ein Bauteil beschnitten. Ein Bild statt
+                     acht, und die Teile passen zwangsläufig zusammen. -->
+                <div id="arch" aria-hidden="true">
+                    <img class="arch-ghost" src="assets/ui/bogen.png" alt="">
+                    <img class="arch-teil links"   id="arch-left"  src="assets/ui/bogen.png" alt="">
+                    <img class="arch-teil rechts"  id="arch-right" src="assets/ui/bogen.png" alt="">
+                    <img class="arch-teil schluss" id="arch-key"   src="assets/ui/bogen.png" alt="">
+                    <span class="arch-label" id="lbl-left">Akkusativ</span>
+                    <span class="arch-label" id="lbl-right">Infinitiv</span>
+                </div>
+            </div>
+
+            <div class="sentence-box"><div id="sentence-words"></div></div>
+
+            <div class="instruction-line" id="instruction"></div>
+
+            <div class="time-choice" id="time-choice">
+                <button class="time-btn" id="btn-gleichzeitig">gleichzeitig<small>Infinitiv Präsens</small></button>
+                <button class="time-btn" id="btn-vorzeitig">vorzeitig<small>Infinitiv Perfekt</small></button>
+            </div>
+        </div>
+
+        <!-- ENDE -->
+        <div id="end-box" class="start-screen" style="display:none;">
+            <h2 style="font-family: var(--font-display); color: var(--pompeji); margin-bottom: 12px;" id="end-title">Bogen vollendet!</h2>
+            <div class="notice-box"><div class="end-treasury-grid" id="end-summary"></div></div>
+            <button class="start-btn" id="btn-review" style="display:none; margin-bottom:12px;">Fehler wiederholen</button>
+            <br>
+            <button class="start-btn" id="btn-again">Noch einmal</button>
+            <p style="margin-top:16px;"><a href="index.html" style="color:var(--pompeji);">← Zum Hauptmenü</a></p>
+        </div>
+
+        <!-- FEEDBACK -->
+        <div class="feedback-overlay" id="feedback-box">
+            <div class="feedback-title" id="fb-title"></div>
+            <div class="feedback-explanation" id="fb-text"></div>
+            <button class="start-btn" id="btn-next">Weiter</button>
+        </div>
+
+    </div>
+
+<script>
+    // Schritt → Achievement-Kategorie (siehe CATEGORY_META in progress.js)
+    const STEP_CATEGORY = {
+        aciSub: 'Subjektsakkusativ',
+        aciInf: 'AcI-Infinitiv',
+        zeit:   'Zeitverhältnis'
+    };
+
+    let activePool = [];
+    let nounPool = [];
+    let verbPool = [];
+    let maxSelectedLesson = 0;
+
+    let currentRound = null;
+    let roundIdx = 0;
+    const totalRounds = 8;
+    let correctCount = 0;
+    let currentStep = 'aciSub';
+    let stepHadError = false;
+    let roundHadError = false;
+    let locked = false;
+
+    let missedItems = [];
+    let isReviewMode = false;
+    let reviewQueue = [];
+    let reviewIdx = 0;
+    let reviewCorrectCount = 0;
+
+    window.onload = function () {
+        document.getElementById('btn-start').addEventListener('click', promptLessonsAndStart);
+        document.getElementById('btn-next').addEventListener('click', onNextClicked);
+        document.getElementById('btn-again').addEventListener('click', promptLessonsAndStart);
+        document.getElementById('btn-review').addEventListener('click', startReview);
+        document.getElementById('btn-gleichzeitig').addEventListener('click', () => chooseTime('gleichzeitig'));
+        document.getElementById('btn-vorzeitig').addEventListener('click', () => chooseTime('vorzeitig'));
+    };
+
+    function promptLessonsAndStart() {
+        if (typeof globalVocabularyPool === 'undefined') {
+            alert('Fehler: vocabulary.js nicht gefunden!'); return;
+        }
+        LessonFilter.show(globalVocabularyPool, function (filteredPool, selectedLessonNumbers) {
+            activePool = filteredPool;
+            maxSelectedLesson = selectedLessonNumbers ? Math.max(...selectedLessonNumbers) : 999;
+
+            if (maxSelectedLesson < SentenceEngine.ACI_LESSON) {
+                alert('Der AcI wird erst in Lektion ' + SentenceEngine.ACI_LESSON + ' eingeführt. Bitte wähle mindestens Lektion ' + SentenceEngine.ACI_LESSON + ' mit aus.');
+                return;
+            }
+
+            nounPool = activePool.filter(v => v.type === 'noun' && SentenceEngine.nomenTauglich(v));
+            verbPool = activePool.filter(v => v.type === 'verb' && SentenceEngine.verbTauglich(v));
+
+            if (!SentenceEngine.buildAcI({ nounPool, verbPool, maxLesson: maxSelectedLesson })) {
+                alert('In den ausgewählten Lektionen lässt sich noch kein AcI bilden. Bitte wähle weitere Lektionen mit aus.');
+                return;
+            }
+
+            startGame();
+        });
+    }
+
+    function startGame() {
+        roundIdx = 0;
+        correctCount = 0;
+        missedItems = [];
+        isReviewMode = false;
+
+        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('end-box').style.display = 'none';
+        document.getElementById('game-box').style.display = 'flex';
+
+        showRound();
+    }
+
+    function buildRound() {
+        for (let versuch = 0; versuch < 10; versuch++) {
+            const s = SentenceEngine.buildAcI({ nounPool, verbPool, maxLesson: maxSelectedLesson });
+            if (s) return s;
+        }
+        return null;
+    }
+
+    function showRound(forced) {
+        currentRound = forced || buildRound();
+        if (!currentRound) { alert('Es ließ sich kein Satz bilden. Bitte wähle weitere Lektionen mit aus.'); return; }
+
+        currentStep = 'aciSub';
+        stepHadError = false;
+        roundHadError = false;
+        locked = false;
+
+        document.getElementById('round-number').innerText = isReviewMode
+            ? 'WIEDERHOLUNG ' + (reviewIdx + 1) + ' VON ' + reviewQueue.length
+            : 'SATZ ' + (roundIdx + 1) + ' VON ' + totalRounds;
+        document.getElementById('progress-bar').style.width =
+            (isReviewMode ? (reviewIdx / reviewQueue.length) : (roundIdx / totalRounds)) * 100 + '%';
+
+        resetArch();
+        renderSentence();
+        updateInstruction();
+        document.getElementById('time-choice').style.display = 'none';
+    }
+
+    // Den Bogenlauf trägt jetzt das Bild selbst - es gibt nur noch die drei
+    // Schleier über den Teilen, die bestimmt werden müssen.
+    function resetArch() {
+        ['arch-left', 'arch-right', 'arch-key', 'lbl-left', 'lbl-right'].forEach(id =>
+            document.getElementById(id).classList.remove('set'));
+    }
+
+    function renderSentence() {
+        const box = document.getElementById('sentence-words');
+        box.innerHTML = '';
+        currentRound.tokens.forEach((token, idx) => {
+            const span = document.createElement('span');
+            span.className = 'latin-word';
+            span.dataset.idx = idx;
+            span.textContent = token.text;
+            span.addEventListener('click', () => handleWordClick(idx));
+            box.appendChild(span);
+        });
+    }
+
+    // Ist das Zeitverhältnis in dieser Lektionsspanne überhaupt eine Frage?
+    // Vor L10 gibt es nur den Infinitiv Präsens, also nur Gleichzeitigkeit.
+    function zeitIstFrage() {
+        return VerbEngine.isInfinitiveKnown('Perfekt', 'Aktiv', maxSelectedLesson);
+    }
+
+    function updateInstruction() {
+        const el = document.getElementById('instruction');
+        if (currentStep === 'aciSub') {
+            el.innerHTML = 'Welches Wort ist der <strong>Subjektsakkusativ</strong>?<small>Es steht im Akkusativ — aber es ist kein Objekt.</small>';
+        } else if (currentStep === 'aciInf') {
+            el.innerHTML = 'Und welches Wort ist der <strong>Infinitiv</strong>?<small>Das Prädikat des AcI.</small>';
+        } else if (currentStep === 'zeit') {
+            el.innerHTML = 'Ist die Handlung des AcI <strong>gleichzeitig</strong> oder <strong>vorzeitig</strong>?<small>Schau auf die Form des Infinitivs.</small>';
+        }
+    }
+
+    function markiere(rolle) {
+        currentRound.tokens.forEach((t, i) => {
+            if (t.role !== rolle) return;
+            const s = document.querySelector('.latin-word[data-idx="' + i + '"]');
+            s.classList.add('found-' + rolle);
+            s.style.cursor = 'default';
+        });
+    }
+
+    function handleWordClick(idx) {
+        if (locked || (currentStep !== 'aciSub' && currentStep !== 'aciInf')) return;
+
+        const token = currentRound.tokens[idx];
+        const span = document.querySelector('.latin-word[data-idx="' + idx + '"]');
+
+        if (token.role === currentStep) {
+            melde(STEP_CATEGORY[currentStep], !stepHadError);
+            stepHadError = false;
+
+            markiere(currentStep);
+            document.getElementById(currentStep === 'aciSub' ? 'arch-left' : 'arch-right').classList.add('set');
+            document.getElementById(currentStep === 'aciSub' ? 'lbl-left' : 'lbl-right').classList.add('set');
+
+            if (currentStep === 'aciSub') {
+                currentStep = 'aciInf';
+                updateInstruction();
+            } else {
+                // Beide Pfeiler stehen - es fehlt nur noch der Schlussstein
+                currentRound.tokens.forEach((t, i) => {
+                    if (t.role === 'sub' || t.role === 'praed') {
+                        document.querySelector('.latin-word[data-idx="' + i + '"]').classList.add('rest');
+                    }
+                });
+
+                if (zeitIstFrage()) {
+                    currentStep = 'zeit';
+                    updateInstruction();
+                    document.getElementById('time-choice').style.display = 'flex';
+                    document.getElementById('btn-gleichzeitig').disabled = false;
+                    document.getElementById('btn-vorzeitig').disabled = false;
+                    document.getElementById('btn-gleichzeitig').className = 'time-btn';
+                    document.getElementById('btn-vorzeitig').className = 'time-btn';
+                } else {
+                    document.getElementById('arch-key').classList.add('set');
+                    finishRound();
+                }
+            }
+        } else {
+            roundHadError = true;
+            stepHadError = true;
+            span.classList.add('wrong-flash');
+            setTimeout(() => span.classList.remove('wrong-flash'), 400);
+        }
+    }
+
+    function chooseTime(wahl) {
+        if (locked || currentStep !== 'zeit') return;
+        locked = true;
+        document.getElementById('btn-gleichzeitig').disabled = true;
+        document.getElementById('btn-vorzeitig').disabled = true;
+
+        const richtig = (wahl === currentRound.zeitverhaeltnis);
+        if (!richtig) roundHadError = true;
+        melde(STEP_CATEGORY.zeit, richtig);
+
+        document.getElementById('btn-' + wahl).classList.add(richtig ? 'correct' : 'wrong');
+        if (!richtig) document.getElementById('btn-' + currentRound.zeitverhaeltnis).classList.add('correct');
+        if (richtig) document.getElementById('arch-key').classList.add('set');
+
+        setTimeout(finishRound, richtig ? 350 : 850);
+    }
+
+    function melde(kategorie, richtig) {
+        LudiProgress.recordVocabAttempt(currentRound.infLemma, richtig);
+        const unlock = LudiProgress.recordCategoryAttempt(kategorie, richtig);
+        if (unlock) AchievementToast.show(unlock);
+    }
+
+    function finishRound() {
+        locked = true;
+        currentStep = 'done';
+
+        if (isReviewMode) {
+            if (!roundHadError) reviewCorrectCount++;
+        } else {
+            if (!roundHadError) correctCount++;
+            else missedItems.push(currentRound);
+        }
+
+        const box = document.getElementById('feedback-box');
+        document.getElementById('fb-title').innerText = roundHadError ? '🏛️ Der Bogen wackelt...' : '✅ Bogen steht!';
+        document.getElementById('fb-title').style.color = roundHadError ? '#F44336' : '#4CAF50';
+        document.getElementById('fb-text').innerHTML = currentRound.explanation;
+        box.style.display = 'flex';
+    }
+
+    function onNextClicked() {
+        document.getElementById('feedback-box').style.display = 'none';
+
+        if (isReviewMode) {
+            reviewIdx++;
+            if (reviewIdx >= reviewQueue.length) endReview();
+            else showRound(reviewQueue[reviewIdx]);
+            return;
+        }
+
+        roundIdx++;
+        if (roundIdx >= totalRounds) endGame();
+        else showRound();
+    }
+
+    function endGame() {
+        document.getElementById('game-box').style.display = 'none';
+        document.getElementById('end-box').style.display = 'block';
+        document.getElementById('end-title').innerText = correctCount === totalRounds ? 'Bogen vollendet!' : 'Runde beendet';
+
+        LudiProgress.saveGameResult('arcus', correctCount, totalRounds);
+
+        let text = '<strong>' + correctCount + ' von ' + totalRounds + '</strong> Bögen ohne Fehler gebaut.';
+        if (missedItems.length) text += '<br><br>' + missedItems.length + ' Satz/Sätze bereiteten Mühe.';
+        document.getElementById('end-summary').innerHTML = text;
+        document.getElementById('btn-review').style.display = missedItems.length ? 'inline-block' : 'none';
+    }
+
+    function startReview() {
+        reviewQueue = missedItems.slice();
+        reviewIdx = 0;
+        reviewCorrectCount = 0;
+        isReviewMode = true;
+
+        document.getElementById('end-box').style.display = 'none';
+        document.getElementById('game-box').style.display = 'flex';
+        showRound(reviewQueue[0]);
+    }
+
+    function endReview() {
+        isReviewMode = false;
+        document.getElementById('game-box').style.display = 'none';
+        document.getElementById('end-box').style.display = 'block';
+        document.getElementById('end-title').innerText = 'Wiederholung beendet';
+        document.getElementById('end-summary').innerHTML =
+            'In der Wiederholung <strong>' + reviewCorrectCount + ' von ' + reviewQueue.length + '</strong> fehlerfrei.';
+        document.getElementById('btn-review').style.display = 'none';
+    }
+</script>
+</body>
+</html>

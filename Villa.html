@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Aedificium Rōmānum - Villa</title>
+    <script src="vocabulary.js"></script>
+    <script src="progress.js"></script>
+    <script src="achievementToast.js"></script>
+    <script src="lessonFilter.js"></script>
+    <script src="nounEngine.js"></script>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--wand);
+            color: var(--ink);
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh; padding: 15px;
+        }
+
+        h1 {
+            color: var(--pompeji); font-family: var(--font-display);
+            text-transform: uppercase; font-size: 1.8rem; margin-bottom: 5px;
+            text-align: center; letter-spacing: 2px; text-shadow: 2px 2px 4px rgba(80, 60, 30, 0.22);
+        }
+
+        .game-container {
+            width: 100%; max-width: 700px; background: var(--putz);
+            border: 4px solid var(--bronze); border-radius: 12px;
+            padding: 20px; box-shadow: 0 8px 25px rgba(80, 60, 30, 0.22);
+            position: relative; min-height: 500px; display: flex; flex-direction: column;
+        }
+
+        /* Bauplatz der Villa: vollformatiges Bild pro Baustufe */
+        .building-site {
+            border: 4px solid var(--wand-tief); border-radius: 8px;
+            position: relative; margin-bottom: 15px; overflow: hidden;
+            box-shadow: inset 0 0 20px rgba(80, 60, 30, 0.12);
+        }
+
+        /* Fortschrittsanzeige */
+        .progress-bar-container { height: 12px; border-radius: 6px; margin-bottom: 15px; }
+
+        /* Fragebereich */
+        .question-box {
+            background: rgba(90, 70, 40, 0.07); border-left: 5px solid var(--gold);
+            padding: 15px; border-radius: 4px; text-align: center; margin-bottom: 20px; min-height: 90px;
+            display: flex; flex-direction: column; justify-content: center;
+        }
+
+        .q-category { font-size: 0.8rem; text-transform: uppercase; color: var(--pompeji); font-weight: bold; margin-bottom: 8px; letter-spacing: 1px; }
+        .q-text { font-family: var(--font-display); font-size: 1.25rem; color: var(--ink); font-weight: bold; line-height: 1.4; }
+        .q-highlight { color: var(--pompeji); font-size: 1.4rem; display: block; margin-top: 5px; }
+
+        .options-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; flex-grow: 1; }
+
+        .build-btn {
+            background: var(--putz-hell); border: 2px solid var(--bronze); color: var(--ink);
+            padding: 16px 5px; font-size: 1.1rem; font-weight: bold; border-radius: 8px;
+            cursor: pointer; transition: background 0.1s; text-align: center;
+            touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+        }
+        .build-btn:not(:disabled):active { background: var(--wand); }
+
+        .correct { background: var(--richtig) !important; border-color: #fff !important; color: #fff; }
+        .wrong { background: var(--falsch) !important; border-color: #fff !important; color: #fff; }
+
+        /* Overlays */
+        .overlay-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(244, 236, 219, 0.97); border-radius: 8px;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            padding: 20px; text-align: center; z-index: 10;
+        }
+        
+        .main-btn {
+            background-color: var(--pompeji); color: var(--marmor);
+            font-family: var(--font-display); font-weight: bold; padding: 15px 40px;
+            border: none; border-radius: 30px; font-size: 1.2rem; cursor: pointer; text-transform: uppercase;
+            box-shadow: 0 5px 15px rgba(212, 175, 55, 0.3); touch-action: manipulation; margin-top: 20px;
+        }
+
+        .notice-box { line-height: 1.5; max-width: 500px; }
+        /* Emblem über der Überschrift, nach dem Vorbild der Trophäenseite:
+           ein Gegenstand, der zum Spiel gehört, statt eines Emojis. */
+        .emblem { display: block; height: 68px; margin: 0 auto 4px; }
+        @media (max-width: 520px) { .emblem { height: 52px; } }
+
+    </style>
+</head>
+<body>
+<a href="index.html" id="global-menu-btn" onclick="return confirm('Zurück zum Hauptmenü? Der aktuelle Fortschritt in dieser Runde geht verloren.');" title="Zurück zum Hauptmenü">🏠</a>
+
+    <!-- Reiner Zierrat: hinter dem Inhalt, ohne Klickfläche, auf schmalen Schirmen aus -->
+    <div class="saeule-links" aria-hidden="true"></div>
+    <div class="saeule-rechts" aria-hidden="true"></div>
+
+    <img class="emblem" src="assets/ui/amphore.png" alt="" aria-hidden="true">
+    <h1>Aedificium Rōmānum</h1>
+    <div style="font-family: var(--font-display); font-style: italic; color: var(--ink-soft); margin-bottom: 15px; text-align: center;">
+        KNG-Kongruenz: Meistere die Adjektive!
+    </div>
+
+    <div class="trenner" aria-hidden="true"></div>
+
+    <div class="game-container">
+        
+        <!-- Startbildschirm -->
+        <div class="overlay-screen" id="start-screen" style="display: flex;">
+            <h2 style="font-family: var(--font-display); color: var(--pompeji); font-size: 2.2rem;">Der Architekt</h2>
+            <div class="notice-box">
+                <h3 style="color: var(--pompeji); margin-bottom: 8px;">Taktik-Befehl:</h3>
+                <p>Der Kaiser fordert den Bau einer neuen Villa. Das Baumaterial erhältst du nur durch makellose Grammatik!</p>
+                <p style="margin-top: 10px;">Dir wird ein Substantiv im Nominativ, Genitiv oder Akkusativ gezeigt. Deine Aufgabe: Wähle das Adjektiv aus, das sich in <strong>Fall, Zahl und Geschlecht (KNG)</strong> perfekt anpasst!</p>
+                <p style="margin-top: 10px; font-size: 0.9rem; color: var(--ink-soft);"><em>Tipp: Achte auf das Geschlecht der Vokabel. Nicht jedes Wort auf -us ist maskulin, nicht jedes auf -a ist feminin!</em></p>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:10px; width:100%; max-width:320px;">
+                <button class="main-btn" id="btn-start-uo">Reguläre Adjektive (-us/-a/-um)</button>
+                <button class="main-btn" id="btn-start-i">i-Deklination (ab Lektion 17)</button>
+                <button class="main-btn" id="btn-start-mixed">Gemischt</button>
+            </div>
+            <a href="index.html" class="main-btn" style="background: var(--wand-tief); color: var(--ink); font-size: 0.9rem; padding: 10px 20px;">Zurück zum Menü</a>
+        </div>
+
+        <!-- Endbildschirm -->
+        <div class="overlay-screen" id="end-screen">
+            <h2 style="font-family: var(--font-display); color: var(--pompeji); font-size: 2.5rem; margin-bottom: 10px;">OPUS PERFECTUM!</h2>
+            <p style="font-size: 1.2rem; max-width: 500px; line-height: 1.6;">Die Villa erstrahlt in vollem Glanz! Deine Beherrschung der KNG-Kongruenz ist wahrlich kaiserlich.</p>
+            <button class="main-btn" id="btn-restart">Neue Villa bauen</button>
+            <a href="index.html" class="main-btn" style="background: var(--wand-tief); color: var(--ink); font-size: 0.9rem; padding: 10px 20px;">Zurück zum Menü</a>
+        </div>
+
+        <!-- Spielfeld -->
+        <div style="font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; color: var(--ink-soft); text-align: center;">BAUFORTSCHRITT</div>
+        <div class="progress-bar-container">
+            <div class="progress-bar" id="build-progress"></div>
+        </div>
+
+        <div class="building-site">
+            <img id="villa-image" src="" alt="Baufortschritt der Villa" style="width:100%; height:auto; display:none; border-radius:8px;">
+            <div id="villa-placeholder" style="width:100%; aspect-ratio:1000/558; background:var(--wand-tief); border-radius:8px; display:flex; align-items:center; justify-content:center; color: var(--ink); font-style:italic; text-align:center; padding:20px;">
+                Der Bauplatz wartet auf den ersten Spatenstich ...
+            </div>
+        </div>
+
+        <div class="question-box">
+            <div class="q-category" id="q-category">Welche Form passt?</div>
+            <div class="q-text" id="q-text">Lade Architekturpläne...</div>
+        </div>
+
+        <div class="options-grid">
+            <button class="build-btn" id="opt0">-</button>
+            <button class="build-btn" id="opt1">-</button>
+            <button class="build-btn" id="opt2">-</button>
+            <button class="build-btn" id="opt3">-</button>
+        </div>
+    </div>
+
+    <script>
+        // --- GRAMMATIK ENGINE (KNG) ---
+        // Definition der möglichen Fälle. 0=Nom, 1=Gen, 2=Dat, 3=Akk, 4=Abl
+        // Nur Kasus, die bis zur gewählten Lektion drangekommen sind. Nominativ
+        // und Akkusativ gibt es ab L1, der Genitiv erst ab L6 - in Lektion 5
+        // bekamen die Schüler hier also Genitive, die noch nicht dran waren.
+        // Dativ und Ablativ waren hier schon immer ausgenommen.
+        let maxSelectedLesson = 999;
+        function erlaubteFaelle() {
+            const bekannt = NounEngine.getKnownCases(maxSelectedLesson);
+            const paare = [[0, "nom"], [1, "gen"], [3, "akk"]];
+            return paare.filter(p => bekannt.indexOf(p[1]) !== -1).map(p => p[0]);
+        }
+        function erlaubteNumeri() {
+            return NounEngine.isPluralKnown(maxSelectedLesson) ? 2 : 1;
+        }
+
+        // Adapter: liefert dieselbe (caseIdx, numIdx)-Aufrufkonvention wie zuvor,
+        // nutzt aber intern NounEngine (deckt jetzt auch e-/u-Deklination korrekt ab,
+        // die vorher stillschweigend auf die bloße Nominativform zurückfielen).
+        function declineNoun(nounObj, caseIdx, numIdx) {
+            const caseKeys = ['Nom', 'Gen', 'Dat', 'Akk', 'Abl'];
+            const numerus = numIdx === 0 ? 'Sg' : 'Pl';
+            return NounEngine.getForm(nounObj, caseKeys[caseIdx], numerus);
+        }
+
+        // Reguläre a-/o-Deklination-Adjektive (-us/-a/-um-Muster)
+        function declineAdjectiveUO(adjObj, genKey, caseIdx, numIdx) {
+            let latin = adjObj.latin;
+            let stem = "";
+            let nomM = "";
+
+            if (latin.includes("miser")) { stem = "miser"; nomM = "miser"; }
+            else if (latin.includes("pulcher")) { stem = "pulchr"; nomM = "pulcher"; }
+            else if (latin.includes("noster")) { stem = "nostr"; nomM = "noster"; }
+            else if (latin.includes("vester")) { stem = "vestr"; nomM = "vester"; }
+            else { stem = latin.split(",")[0].replace("us", ""); nomM = stem + "us"; }
+
+            const endings = {
+                "m.": { "Sg": [nomM, "ī", "ō", "um", "ō"], "Pl": ["ī", "ōrum", "īs", "ōs", "īs"] },
+                "f.": { "Sg": ["a", "ae", "ae", "am", "ā"], "Pl": ["ae", "ārum", "īs", "ās", "īs"] },
+                "n.": { "Sg": ["um", "ī", "ō", "um", "ō"], "Pl": ["a", "ōrum", "īs", "a", "īs"] }
+            };
+
+            let e = numIdx===0 ? endings[genKey]["Sg"][caseIdx] : endings[genKey]["Pl"][caseIdx];
+            if (caseIdx===0 && numIdx===0 && genKey==="m.") return nomM;
+            return stem + e;
+        }
+
+        // i-Deklination-Adjektive (zwei-, drei- und einendig) - deutlich häufiger als
+        // man denkt (mind. 20 Adjektive im Wortschatz: gravis, audāx, celer, ācer, ...).
+        // dīves ist eine echte, im gram_clue vermerkte Ausnahme (Abl. Sg. -e statt -ī,
+        // Nom./Akk. Pl. n. -a statt -ia, Gen. Pl. -um statt -ium).
+        function declineAdjectiveI(adjObj, genKey, caseIdx, numIdx) {
+            if (adjObj.latin === "dīves") {
+                const stem = "dīvit";
+                const mfEndings = { Sg: ["dīves", stem+"is", stem+"ī", stem+"em", stem+"e"], Pl: [stem+"ēs", stem+"um", stem+"ibus", stem+"ēs", stem+"ibus"] };
+                const nEndings = { Sg: ["dīves", stem+"is", stem+"ī", "dīves", stem+"e"], Pl: [stem+"a", stem+"um", stem+"ibus", stem+"a", stem+"ibus"] };
+                const t = genKey === "n." ? nEndings : mfEndings;
+                return numIdx===0 ? t.Sg[caseIdx] : t.Pl[caseIdx];
+            }
+
+            const parts = adjObj.latin.split(",").map(s => s.trim());
+            let nomM, nomF, nomN, stem;
+
+            if (parts.length === 3) { // dreiendig, z.B. "ācer, ācris, ācre"
+                nomM = parts[0];
+                stem = parts[1].replace(/is$/, "");
+                nomF = stem + "is"; nomN = stem + "e";
+            } else if (parts.length === 2) { // zweiendig, z.B. "gravis, grave"
+                nomM = nomF = parts[0];
+                stem = parts[0].replace(/is$/, "");
+                nomN = parts[1];
+            } else { // einendig, z.B. "audāx" - Genitivstamm aus gram_clue extrahieren
+                nomM = nomF = nomN = adjObj.latin;
+                const m = (adjObj.gram_clue || "").match(/Genitiv:\s*([a-zA-ZāēīōūǣĀĒĪŌŪ]+)is/);
+                stem = m ? m[1] : adjObj.latin.slice(0, -1); // Sicherheitsnetz, sollte dank gram_clue nie greifen
+            }
+
+            if (genKey === "n.") {
+                if (caseIdx === 0 || caseIdx === 3) return numIdx === 0 ? nomN : stem + "ia";
+                const nEnd = { "1": stem+"is", "2": stem+"ī", "4": stem+"ī" };
+                const nPlEnd = { "1": stem+"ium", "2": stem+"ibus", "4": stem+"ibus" };
+                return numIdx===0 ? nEnd[caseIdx] : nPlEnd[caseIdx];
+            }
+
+            const nomForm = genKey === "m." ? nomM : nomF;
+            if (caseIdx === 0) return numIdx === 0 ? nomForm : stem + "ēs";
+            const mfEnd = { "1": stem+"is", "2": stem+"ī", "3": stem+"em", "4": stem+"ī" };
+            const mfPlEnd = { "1": stem+"ium", "2": stem+"ibus", "3": stem+"ēs", "4": stem+"ibus" };
+            return numIdx===0 ? mfEnd[caseIdx] : mfPlEnd[caseIdx];
+        }
+
+        function declineAdjective(adjObj, targetGender, caseIdx, numIdx) {
+            const genKey = targetGender.includes("n") ? "n." : (targetGender.includes("f") ? "f." : "m.");
+            if (adjObj.gram_class === "i-Deklination") {
+                return declineAdjectiveI(adjObj, genKey, caseIdx, numIdx);
+            }
+            return declineAdjectiveUO(adjObj, genKey, caseIdx, numIdx);
+        }
+
+        // --- SPIELLOGIK ---
+        let currentStage = 0;
+        let currentVillaAdj = null;
+        const totalStages = 6;
+        let currentCorrectAnswer = "";
+        let roundLocked = false;
+        
+        let nounPool = [];
+        let adjPool = [];
+        let activePool = [];
+        let adjMode = 'uo'; // 'uo' | 'i' | 'mixed'
+
+        function promptLessonsAndStart(mode) {
+            if (mode) adjMode = mode;
+            if (typeof globalVocabularyPool === 'undefined') {
+                alert("Fehler: vocabulary.js fehlt!"); return;
+            }
+            LessonFilter.show(globalVocabularyPool, function(filteredPool, selectedNums) {
+                activePool = filteredPool;
+                maxSelectedLesson = (selectedNums && selectedNums.length) ? Math.max.apply(null, selectedNums) : 999;
+                initGame();
+            });
+        }
+
+        window.onload = function() {
+            document.getElementById('btn-start-uo').addEventListener('click', function() { promptLessonsAndStart('uo'); });
+            document.getElementById('btn-start-i').addEventListener('click', function() { promptLessonsAndStart('i'); });
+            document.getElementById('btn-start-mixed').addEventListener('click', function() { promptLessonsAndStart('mixed'); });
+            document.getElementById('btn-restart').addEventListener('click', function() { promptLessonsAndStart(); });
+            for(let i=0; i<4; i++) {
+                document.getElementById('opt' + i).addEventListener('click', function() { submitAnswer(i); });
+            }
+        };
+
+        function initGame() {
+            if (activePool.length === 0) {
+                alert("Fehler: Kein Vokabelpool ausgewählt!"); return;
+            }
+
+            nounPool = activePool.filter(v => v.type === "noun" && !v.middle.includes("Pl."));
+            // Numerale (indeklinabel oder mit völlig eigener Deklination wie duo/trēs/mīlle)
+            // passen nicht zu einem KNG-Kongruenz-Spiel und werden grundsätzlich ausgeschlossen.
+            const realAdjectives = v => v.type === "adjective" && (v.gram_class === "a-/o-Deklination" || v.gram_class === "i-Deklination");
+            if (adjMode === 'uo') {
+                adjPool = activePool.filter(v => realAdjectives(v) && v.gram_class !== "i-Deklination");
+            } else if (adjMode === 'i') {
+                adjPool = activePool.filter(v => realAdjectives(v) && v.gram_class === "i-Deklination");
+            } else {
+                adjPool = activePool.filter(realAdjectives);
+            }
+
+            if (nounPool.length === 0 || adjPool.length === 0) {
+                const hinweis = adjMode === 'i'
+                    ? "In den ausgewählten Lektionen gibt es noch keine i-Deklination-Adjektive (die ersten kommen erst ab Lektion 17 dazu). Bitte wähle mindestens Lektion 17 mit aus."
+                    : "In den ausgewählten Lektionen gibt es noch keine passenden Adjektive (die ersten Adjektive kommen erst ab Lektion 5 dazu). Bitte wähle mindestens Lektion 5 oder 6 mit aus.";
+                alert(hinweis);
+                return;
+            }
+
+            currentStage = 0;
+            updateProgressBar();
+            document.getElementById('villa-image').style.display = 'none';
+            document.getElementById('villa-placeholder').style.display = 'flex';
+
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('end-screen').style.display = 'none';
+            
+            nextQuestion();
+        }
+
+        function nextQuestion() {
+            roundLocked = false;
+
+            let noun = nounPool[Math.floor(Math.random() * nounPool.length)];
+            let adj = adjPool[Math.floor(Math.random() * adjPool.length)];
+            currentVillaAdj = adj;
+
+            // Nur erlaubte Fälle (Nom, Gen, Akk) auswählen
+            const faelle = erlaubteFaelle();
+            let caseIdx = faelle[Math.floor(Math.random() * faelle.length)];
+            let numIdx = Math.floor(Math.random() * erlaubteNumeri());
+
+            let nounGender = noun.middle.split(" ")[1] || "m.";
+            
+            let declinedNoun = declineNoun(noun, caseIdx, numIdx);
+            currentCorrectAnswer = declineAdjective(adj, nounGender, caseIdx, numIdx);
+
+            document.getElementById('q-text').innerHTML = `Finde die passende Form von <strong>${adj.latin}</strong> für:<br><span class="q-highlight">${declinedNoun} <span style="font-size:1rem; color: var(--ink-soft);">(${noun.latin}, ${noun.middle})</span></span>`;
+
+            // Intelligente Distraktoren: Gleiches Adjektiv, aber falsche KNG-Kombinationen (ebenfalls nur aus erlaubten Fällen)
+            let wrongPool = [];
+            let safety = 0;
+            while(wrongPool.length < 3 && safety < 50) {
+                safety++;
+                let randCase = faelle[Math.floor(Math.random() * faelle.length)];
+                let randNum = Math.floor(Math.random() * erlaubteNumeri());
+                let randGen = ["m.", "f.", "n."][Math.floor(Math.random() * 3)];
+                
+                let fakeForm = declineAdjective(adj, randGen, randCase, randNum);
+                if(fakeForm !== currentCorrectAnswer && !wrongPool.includes(fakeForm)) {
+                    wrongPool.push(fakeForm);
+                }
+            }
+
+            const finalOptions = [currentCorrectAnswer, ...wrongPool].sort(() => Math.random() - 0.5);
+
+            for (let i = 0; i < 4; i++) {
+                const btn = document.getElementById('opt' + i);
+                btn.textContent = finalOptions[i];
+                btn.className = "build-btn";
+                btn.disabled = false;
+            }
+        }
+
+        function submitAnswer(idx) {
+            if(roundLocked) return;
+            roundLocked = true;
+
+            for (let i = 0; i < 4; i++) document.getElementById('opt' + i).disabled = true;
+
+            const selectedBtn = document.getElementById('opt' + idx);
+            const isCorrect = (selectedBtn.textContent === currentCorrectAnswer);
+            LudiProgress.recordVocabAttempt(currentVillaAdj.latin, isCorrect);
+
+            // Das Spiel übt genau eine Sache, unabhängig vom gewählten Adjektiv-Modus.
+            const unlock = LudiProgress.recordCategoryAttempt('KNG-Kongruenz', isCorrect);
+            if (unlock) AchievementToast.show(unlock);
+
+            if (isCorrect) {
+                selectedBtn.classList.add('correct');
+                currentStage++;
+                updateProgressBar();
+                document.getElementById('villa-placeholder').style.display = 'none';
+                const img = document.getElementById('villa-image');
+                img.style.display = 'block';
+                img.src = 'assets/villa/villa_stage_' + currentStage + '.jpg';
+            } else {
+                selectedBtn.classList.add('wrong');
+                for (let i = 0; i < 4; i++) {
+                    if (document.getElementById('opt' + i).textContent === currentCorrectAnswer) {
+                        document.getElementById('opt' + i).classList.add('correct');
+                    }
+                }
+            }
+
+            setTimeout(() => {
+                if (currentStage >= totalStages) {
+                    LudiProgress.saveGameResult('villa', currentStage, totalStages);
+                    document.getElementById('end-screen').style.display = 'flex';
+                } else {
+                    nextQuestion();
+                }
+            }, 1200);
+        }
+
+        function updateProgressBar() {
+            let percent = (currentStage / totalStages) * 100;
+            document.getElementById('build-progress').style.width = percent + '%';
+        }
+    </script>
+</body>
+</html>

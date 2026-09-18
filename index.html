@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Lūdī Rōmānī - Lernspiele</title>
+    <script src="vocabulary.js"></script>
+    <script src="progress.js"></script>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        /* Palette und geteilte Bausteine stehen in theme.css.
+           Hier nur, was das Hauptmenü allein braucht. */
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px 15px;
+            /* Der Steinwand-Grund kommt aus theme.css und gilt für alle Seiten */
+        }
+
+        /* Der Seitentitel steht auf der Bronzetafel - dem letzten Asset, das
+           noch keinen Platz hatte. Inneres Feld #66543b, dazu Marmorcreme:
+           Kontrast 5,85. Schnittwerte am Bild gemessen (900x354). */
+        .header-section {
+            text-align: center;
+            margin-bottom: 24px;
+            max-width: 640px;
+            border-style: solid;
+            border-width: 30px 76px 26px 76px;
+            border-image: url('assets/ui/tabula.png') 45 131 44 131 fill stretch;
+            padding: 6px 4px 10px;
+        }
+
+        h1 {
+            color: var(--marmor);
+            font-family: var(--font-display);
+            text-transform: uppercase;
+            font-size: 2.6rem;
+            margin-bottom: 4px;
+            letter-spacing: 3px;
+            text-shadow: 0 2px 3px rgba(0, 0, 0, 0.45);
+            /* kontrast-ok: 5,85 auf dem inneren Feld der Bronzetafel #66543b */
+        }
+
+        .subtitle { color: #e8ddc4; font-size: 1.05rem; font-style: italic; /* kontrast-ok: 5,38 auf der Bronzetafel #66543b */ }
+
+        @media (max-width: 620px) {
+            .header-section { border-width: 20px 44px 18px 44px; }
+            h1 { font-size: 1.9rem; letter-spacing: 2px; }
+        }
+
+        .pillar-nav {
+            display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
+            margin: 20px 0 10px; width: 100%; max-width: 1000px;
+        }
+        .pillar-nav a {
+            text-decoration: none; font-family: var(--font-body); font-size: 0.85rem;
+            font-weight: bold; padding: 8px 16px; border-radius: 20px;
+            border: 2px solid var(--pillar-color, var(--bronze));
+            color: var(--pillar-color, var(--ink));
+            background: var(--putz);
+        }
+        .pillar-nav a:hover { background: var(--putz-hell); }
+
+        .pillar-section { width: 100%; max-width: 1000px; margin-top: 45px; }
+        .pillar-section:first-of-type { margin-top: 20px; }
+
+        /* Überschrift und Beschreibung stehen sonst nackt auf der Mauer und
+           kämpfen mit dem Ziegelmuster. Sie sitzen deshalb zusammen auf einer
+           hellen Platte - Titel oben, Beschreibung darunter, ein Block. */
+        .pillar-header {
+            display: flex; align-items: baseline; gap: 14px;
+            background: rgba(244, 236, 219, 0.9);
+            border: 1px solid var(--wand-tief);
+            border-bottom: 3px solid var(--pillar-color, var(--bronze));
+            border-radius: 8px 8px 0 0;
+            padding: 10px 16px; margin-bottom: 0;
+        }
+        .pillar-icon { font-size: 1.8rem; }
+        .pillar-title {
+            font-family: var(--font-display); font-size: 1.7rem; text-transform: uppercase;
+            letter-spacing: 1px; color: var(--pillar-color, var(--pompeji));
+        }
+        .pillar-desc {
+            font-size: 0.95rem; color: var(--ink-soft); font-style: italic;
+            background: rgba(244, 236, 219, 0.9);
+            border: 1px solid var(--wand-tief); border-top: none;
+            border-radius: 0 0 8px 8px;
+            padding: 9px 16px 11px; margin-bottom: 0;
+        }
+
+        /* Jede der vier Säulen trägt ihr Kapitell. Die Kopfplatte darüber ist
+           der Architrav, das Kapitell der Säulenkopf, der ihn trägt - deshalb
+           steht es UNTER der Platte und nicht darauf. Der negative Rand oben
+           schiebt den Abakus unter die Plattenkante, damit die beiden Teile
+           zusammenhängen statt übereinander zu schweben. */
+        .pillar-kapitell {
+            display: block; height: 78px;
+            margin: -5px auto 20px;
+        }
+        @media (max-width: 520px) {
+            .pillar-kapitell { height: 56px; margin-bottom: 16px; }
+        }
+
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+            gap: 16px;
+            width: 100%;
+        }
+
+        .game-card {
+            background: var(--putz);
+            border: 2px solid var(--bronze);
+            border-top: 5px solid var(--pillar-color, var(--pompeji));
+            border-radius: 10px;
+            padding: 16px 14px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--schatten);
+            transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+        }
+
+        .game-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--schatten-tief);
+            border-color: var(--pillar-color, var(--pompeji));
+            background: var(--putz-hell);
+        }
+
+        .game-icon { font-size: 2.2rem; margin-bottom: 8px; text-align: center; }
+
+        .game-title {
+            font-family: var(--font-display);
+            font-size: 1.15rem;
+            color: var(--pompeji);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            text-align: center;
+            letter-spacing: 0.5px;
+        }
+
+        .game-focus {
+            background: var(--wand);
+            color: var(--pillar-color, var(--ink));
+            font-size: 0.78rem;
+            font-weight: bold;
+            padding: 5px 8px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            text-align: center;
+            text-transform: uppercase;
+            border: 1px solid var(--wand-tief);
+        }
+
+        .game-desc {
+            font-size: 0.85rem;
+            line-height: 1.45;
+            color: var(--ink);
+            flex-grow: 1;
+            margin-bottom: 14px;
+            text-align: center;
+        }
+
+        .play-btn {
+            background-color: var(--pompeji);
+            color: var(--marmor);
+            text-decoration: none;
+            font-family: var(--font-display);
+            font-weight: bold;
+            font-size: 0.95rem;
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+            text-transform: uppercase;
+            border: 2px solid #6d1f1f;
+            transition: background 0.2s;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .play-btn:hover { filter: brightness(1.14); }
+        .play-btn:active { transform: translateY(1px); }
+
+        .progress-badge {
+            font-size: 0.8rem;
+            text-align: center;
+            margin-bottom: 12px;
+            padding: 5px 8px;
+            border-radius: 4px;
+            background: var(--wand);
+            color: var(--ink-soft);
+            border: 1px solid var(--wand-tief);
+        }
+
+        .progress-badge.has-score {
+            color: var(--ink);
+            background: rgba(184, 145, 47, 0.16);
+            border-color: var(--gold);
+            font-weight: bold;
+        }
+
+        .vocab-ampel {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            font-size: 0.8rem; margin-bottom: 12px; padding: 5px 8px;
+            border-radius: 4px; background: var(--wand); color: var(--ink-soft);
+            border: 1px solid var(--wand-tief);
+        }
+        .vocab-ampel .ampel-bar {
+            display: flex; height: 8px; width: 80px; border-radius: 4px; overflow: hidden;
+            background: var(--wand-tief);
+        }
+        .vocab-ampel .ampel-seg.red { background: #b03030; }
+        .vocab-ampel .ampel-seg.yellow { background: #c99a25; }
+        .vocab-ampel .ampel-seg.green { background: #2f6b3a; }
+
+        /* Die Säulen am Seitenrand stehen jetzt in theme.css - sie hängen auf
+           jeder Spielseite im selben Markup. */
+    </style>
+</head>
+<body>
+
+    <!-- Reiner Zierrat: hinter dem Inhalt, ohne Klickfläche, auf schmalen Schirmen aus -->
+    <div class="saeule-links" aria-hidden="true"></div>
+    <div class="saeule-rechts" aria-hidden="true"></div>
+
+    <div class="header-section">
+        <h1>Lūdī Rōmānī</h1>
+        <div class="subtitle">Wähle deine Trainingsarena</div>
+    </div>
+
+    <div class="trenner" style="max-width: 1000px;" aria-hidden="true"></div>
+
+    <div style="width: 100%; max-width: 1000px; margin-bottom: 10px;">
+        <div class="game-card" style="border-top-color: var(--gold); background: linear-gradient(135deg, #f9f1dc, #efe1bd);">
+            <div class="game-icon">🏆</div>
+            <div class="game-title">Trophäensammlung</div>
+            <div class="game-focus">Deine Erfolge auf einen Blick</div>
+            <div class="game-desc">
+                Serien, Meisterschaft, Fleiß und formen-spezifische Erfolge - in Bronze, Silber, Gold und Diamant.
+            </div>
+            <div class="progress-badge" id="achievements-summary">Lade...</div>
+            <a href="Achievements.html" class="play-btn">Trophäen ansehen</a>
+        </div>
+    </div>
+
+    <nav class="pillar-nav">
+        <a href="#wortschatz" style="--pillar-color: var(--pillar-wortschatz);">🔤 Wortschatz</a>
+        <a href="#formenlehre" style="--pillar-color: var(--pillar-formenlehre);">📐 Formenlehre</a>
+        <a href="#syntax" style="--pillar-color: var(--pillar-syntax);">🔗 Syntax</a>
+        <a href="#kultur" style="--pillar-color: var(--pillar-kultur);">🏺 Römische Kultur</a>
+    </nav>
+
+    <!-- ============ SÄULE 1: WORTSCHATZ ============ -->
+    <section class="pillar-section" id="wortschatz" style="--pillar-color: var(--pillar-wortschatz);">
+        <div class="pillar-header">
+            <span class="pillar-icon">🔤</span>
+            <span class="pillar-title">Wortschatz</span>
+        </div>
+        <div class="pillar-desc">Wörter kennen und ihre Bedeutung sicher abrufen.</div>
+        <img class="pillar-kapitell" src="assets/ui/kapitell.png" alt="" aria-hidden="true">
+
+        <div class="games-grid">
+
+            <div class="game-card" data-game="circus">
+                <div class="game-icon">🐎</div>
+                <div class="game-title">Circus Maximus</div>
+                <div class="game-focus">Schwerpunkt: Bedeutung, schnell und viel</div>
+                <div class="game-desc">
+                    Das schnelle Wagenrennen: Trainiere reine Vokabelbedeutungen im rasanten Tempo gegen die Uhr.
+                </div>
+                <div class="vocab-ampel" id="circus-ampel"></div>
+                <div class="progress-badge"></div>
+                <a href="CircusV.html" class="play-btn">Arena betreten</a>
+            </div>
+
+            <div class="game-card" data-game="principia">
+                <div class="game-icon">🪙</div>
+                <div class="game-title">Prīncipia!</div>
+                <div class="game-focus">Schwerpunkt: Wörterbuch-Grundformen</div>
+                <div class="game-desc">
+                    Präge die richtige Grundform: Genitiv+Geschlecht bei Substantiven, bei Verben wachsen die Stammformen mit deinem Wissensstand mit.
+                </div>
+                <div class="progress-badge"></div>
+                <a href="Principia.html" class="play-btn">Prägerei eröffnen</a>
+            </div>
+
+            <div class="game-card" data-game="issajump">
+                <div class="game-icon">🐕</div>
+                <div class="game-title">Issa Springt!</div>
+                <div class="game-focus">Schwerpunkt: Vokabel-Bedeutung</div>
+                <div class="game-desc">
+                    Jump'n'Run: Lenke Issa frei nach oben und lande auf der Plattform mit der richtigen Bedeutung - falsche Landungen kosten ein Herz.
+                </div>
+                <div class="progress-badge"></div>
+                <a href="IssaJump.html" class="play-btn">Losspringen</a>
+            </div>
+
+            <div class="game-card" data-game="duell">
+                <div class="game-icon">⚔️</div>
+                <div class="game-title">Gladiatoren-Duell</div>
+                <div class="game-focus">Schwerpunkt: Vokabel-Duell zu zweit</div>
+                <div class="game-desc">
+                    1-gegen-1 am iPad. Bedeutung, Grundform und Wortklasse - wer schneller und sicherer antwortet, gewinnt den Kampf!
+                </div>
+                <div class="progress-badge"></div>
+                <a href="Duell.html" class="play-btn">Duell starten</a>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ============ SÄULE 2: FORMENLEHRE ============ -->
+    <section class="pillar-section" id="formenlehre" style="--pillar-color: var(--pillar-formenlehre);">
+        <div class="pillar-header">
+            <span class="pillar-icon">📐</span>
+            <span class="pillar-title">Formenlehre</span>
+        </div>
+        <div class="pillar-desc">Die richtige Form bilden: Deklination, Konjugation, Kongruenz.</div>
+        <img class="pillar-kapitell" src="assets/ui/kapitell.png" alt="" aria-hidden="true">
+
+        <div class="games-grid">
+
+            <div class="game-card" data-game="kastell">
+                <div class="game-icon">🏰</div>
+                <div class="game-title">Formen-Kastell</div>
+                <div class="game-focus">Schwerpunkt: Formen-Drill (Substantive &amp; Verben)</div>
+                <div class="game-desc">
+                    Verteidige die Mauern gegen Katapultsteine! Zwei Modi: Substantiv-Formen (Kasus &amp; Numerus) oder Verb-Formen (Person, Numerus, ab höheren Lektionen auch Tempus).
+                </div>
+                <div class="progress-badge"></div>
+                <a href="Kastell.html" class="play-btn">Kastell verteidigen</a>
+            </div>
+
+            <div class="game-card" data-game="villa">
+                <div class="game-icon">🏛️</div>
+                <div class="game-title">Aedificium Rōmānum</div>
+                <div class="game-focus">Schwerpunkt: KNG-Kongruenz</div>
+                <div class="game-desc">
+                    Erbaue eine prächtige Villa! Baumaterial gewinnst du durch das richtige Anpassen von Adjektiven an Substantive.
+                </div>
+                <div class="progress-badge"></div>
+                <a href="Villa.html" class="play-btn">Villa bauen</a>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ============ SÄULE 3: SYNTAX ============ -->
+    <section class="pillar-section" id="syntax" style="--pillar-color: var(--pillar-syntax);">
+        <div class="pillar-header">
+            <span class="pillar-icon">🔗</span>
+            <span class="pillar-title">Syntax</span>
+        </div>
+        <div class="pillar-desc">Wörter im Satz richtig verbinden und verstehen.</div>
+        <img class="pillar-kapitell" src="assets/ui/kapitell.png" alt="" aria-hidden="true">
+
+        <div class="games-grid">
+
+            <div class="game-card" data-game="pronomina">
+                <div class="game-icon">🔍</div>
+                <div class="game-title">Pronomina!</div>
+                <div class="game-focus">Schwerpunkt: Possessiv- & Personalpronomina</div>
+                <div class="game-desc">
+                    Zwei Modi: Löse Besitz-Fälle (suus vs. eius/eōrum) oder bestimme Personalpronomina als Subjekt oder Objekt.
+                </div>
+                <div class="progress-badge"></div>
+                <a href="Pronomina.html" class="play-btn">Ermittlung starten</a>
+            </div>
+
+            <div class="game-card" data-game="viaromana">
+                <div class="game-icon">🛣️</div>
+                <div class="game-title">Via Rōmāna</div>
+                <div class="game-focus">Schwerpunkt: Satzteil-Bestimmung</div>
+                <div class="game-desc">
+                    Bringe den Reisewagen nach Rom! Bestimme Subjekte, Prädikate und Objekte, um Meilensteine voranzukommen.
+                </div>
+                <div class="progress-badge"></div>
+                <a href="ViaRomana.html" class="play-btn">Reise starten</a>
+            </div>
+
+            <div class="game-card" data-game="pendel">
+                <div class="game-icon">⚖️</div>
+                <div class="game-title">Pendel!</div>
+                <div class="game-focus">Schwerpunkt: Übersetzungsmethode</div>
+                <div class="game-desc">
+                    Der Übersetzungstrainer: Baue dir das Satz-Gerüst nach der Pendelmethode (Subjekt → Prädikat → Objekt) und wähle die richtige Übersetzung.
+                </div>
+                <div class="progress-badge"></div>
+                <a href="Pendel.html" class="play-btn">Pendel starten</a>
+            </div>
+
+            <div class="game-card" data-game="arcus">
+                <div class="game-icon">🏛️</div>
+                <div class="game-title">Arcus</div>
+                <div class="game-focus">Schwerpunkt: AcI (ab Lektion 8)</div>
+                <div class="game-desc">
+                    Der AcI trägt sich selbst wie ein römischer Bogen. Finde seine beiden Pfeiler – den Subjektsakkusativ und den Infinitiv – und ab Lektion 10 den Schlussstein: gleichzeitig oder vorzeitig?
+                </div>
+                <div class="progress-badge"></div>
+                <a href="Arcus.html" class="play-btn">Bogen bauen</a>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ============ SÄULE 4: RÖMISCHE KULTUR ============ -->
+    <section class="pillar-section" id="kultur" style="--pillar-color: var(--pillar-kultur);">
+        <div class="pillar-header">
+            <span class="pillar-icon">🏺</span>
+            <span class="pillar-title">Römische Kultur</span>
+        </div>
+        <div class="pillar-desc">Wissen über das Leben im alten Rom - keine Sprachkompetenz, sondern Sachwissen.</div>
+        <img class="pillar-kapitell" src="assets/ui/kapitell.png" alt="" aria-hidden="true">
+
+        <div class="games-grid">
+
+            <div class="game-card" data-game="quiz">
+                <div class="game-icon">🏺</div>
+                <div class="game-title">Alltags-Quiz</div>
+                <div class="game-focus">Schwerpunkt: Römische Kultur</div>
+                <div class="game-desc">
+                    Teste dein Wissen über das Leben im alten Rom – von der Schule bis zum Forum Romanum.
+                </div>
+                <div class="progress-badge"></div>
+                <a href="Quiz.html" class="play-btn">Quiz starten</a>
+            </div>
+
+        </div>
+    </section>
+
+    <script>
+        // Trophäensammlung-Kachel: Anzahl freigeschalteter Stufen anzeigen
+        if (typeof LudiProgress !== 'undefined') {
+            const summaryEl = document.getElementById('achievements-summary');
+            if (summaryEl) {
+                const overview = LudiProgress.getAchievementOverview();
+                const unlocked = overview.reduce((sum, a) => sum + a.tier, 0);
+                const possible = overview.length * 4;
+                summaryEl.classList.add('has-score');
+                summaryEl.innerText = `🏅 ${unlocked} von ${possible} Stufen freigeschaltet`;
+            }
+        }
+
+        // Gesamtfortschritt (Rot/Gelb/Grün nach Leitner-System) in der Circus-Maximus-Kachel anzeigen
+        if (typeof globalVocabularyPool !== 'undefined' && typeof LudiProgress !== 'undefined') {
+            const ampelEl = document.getElementById('circus-ampel');
+            if (ampelEl) {
+                const summary = LudiProgress.getBoxSummary(globalVocabularyPool);
+                const total = summary.red + summary.yellow + summary.green;
+                if (total > 0) {
+                    const pctRed = (summary.red / total * 100).toFixed(1);
+                    const pctYellow = (summary.yellow / total * 100).toFixed(1);
+                    const pctGreen = (summary.green / total * 100).toFixed(1);
+                    ampelEl.innerHTML = `
+                        <span>🔴 ${summary.red} · 🟡 ${summary.yellow} · 🟢 ${summary.green}</span>
+                        <div class="ampel-bar">
+                            <div class="ampel-seg red" style="width:${pctRed}%"></div>
+                            <div class="ampel-seg yellow" style="width:${pctYellow}%"></div>
+                            <div class="ampel-seg green" style="width:${pctGreen}%"></div>
+                        </div>
+                    `;
+                } else {
+                    ampelEl.innerText = 'Noch keine Vokabeln geübt';
+                }
+            }
+        }
+
+        document.querySelectorAll('.game-card[data-game]').forEach(card => {
+            const gameId = card.getAttribute('data-game');
+            const badge = card.querySelector('.progress-badge');
+
+            // Sonderfall: Pronomina! hat zwei getrennte Modi mit eigenen Scores
+            if (gameId === 'pronomina') {
+                const pPossessiv = LudiProgress.getGameProgress('possessiv');
+                const pPersonal = LudiProgress.getGameProgress('personalpronomen');
+                const parts = [];
+                if (pPossessiv) parts.push(`Possessiv ${pPossessiv.bestScore}/${pPossessiv.maxScore}`);
+                if (pPersonal) parts.push(`Personal ${pPersonal.bestScore}/${pPersonal.maxScore}`);
+                if (parts.length) {
+                    badge.classList.add('has-score');
+                    badge.innerText = `🏆 ${parts.join(' · ')}`;
+                } else {
+                    badge.innerText = 'Noch nicht gespielt';
+                }
+                return;
+            }
+
+            const progress = LudiProgress.getGameProgress(gameId);
+
+            if (progress) {
+                badge.classList.add('has-score');
+                if (progress.maxScore === null || progress.maxScore === undefined) {
+                    badge.innerText = `🏆 Bestleistung: ${progress.bestScore} Runden`;
+                } else {
+                    badge.innerText = `🏆 Bestleistung: ${progress.bestScore} / ${progress.maxScore}`;
+                }
+            } else {
+                badge.innerText = 'Noch nicht gespielt';
+            }
+        });
+    </script>
+
+</body>
+</html>
