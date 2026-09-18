@@ -4,6 +4,12 @@ Diese Fassung ist am 18.09.2026 aus der Pontes-Arena (`Latein_Plattform`, Stand 
 kopiert und auf das Lehrbuch *Cursus* (Neue Ausgabe) umgestellt worden. Die Pontes-Arena
 bleibt davon unberührt; beide Ordner sind eigenständige Git-Repositories.
 
+**Gedacht ist diese Fassung derzeit für die Klassenstufe 6**, also für das erste Lernjahr.
+Der Wortschatz endet deshalb bewusst bei Lektion 6 – nicht, weil der Umbau unfertig wäre.
+Alles, was das Lehrbuch später einführt (Ablativ ab L7, Perfekt ab L11, AcI ab L9, Passiv
+ab L18), ist im Code bereits korrekt hinterlegt und schaltet sich frei, sobald die
+entsprechenden Wörter im Pool stehen.
+
 ## Erledigt
 
 **Wortschatz** – `vocabulary.js` enthält jetzt 175 Einträge, Lektion 1–6, in der Reihenfolge
