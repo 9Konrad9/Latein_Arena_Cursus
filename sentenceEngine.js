@@ -14,10 +14,12 @@
 const SentenceEngine = (() => {
 
     // ---- Lektions-Gating (Lektionsnummern aus dem Pontes-Inhaltsverzeichnis) ----
-    const ATTRIBUT_LESSON  = 6;   // L6: Genitiv als Attribut ("Wessen?")
-    const ADVERBIAL_LESSON = 7;   // L7: Ablativ als adverbiale Bestimmung
-    const DATIVOBJEKT_LESSON = 9; // L9: Dativobjekt (der Dativ selbst wird hier eingeführt)
-    const PASSIV_LESSON    = 15;  // L15: Passiv
+    const ATTRIBUT_LESSON  = 4;   // L4: Satzglied Genitiv-Attribut ("Wessen?")
+    const ADVERBIAL_LESSON = 7;   // L7: Adverbiale - Ablativ in präpositionaler Verbindung
+    const ADVERBIAL_BLOSS_LESSON = 8; // L8: Adverbiale - Ablativ ohne Präposition
+    const AKKUSATIVOBJEKT_LESSON = 3; // L3: Satzglied Akkusativ-Objekt (der Akkusativ selbst wird hier eingeführt)
+    const DATIVOBJEKT_LESSON = 5; // L5: Satzglied Dativ-Objekt (der Dativ selbst wird hier eingeführt)
+    const PASSIV_LESSON    = 18;  // L18: Genus verbi Aktiv - Passiv
     // Das Akkusativobjekt kommt in L1 und braucht deshalb kein Gate.
 
     // ---- Kuratierte Wortlisten für adverbiale Bestimmungen im Ablativ ----
@@ -31,7 +33,13 @@ const SentenceEngine = (() => {
         { key: 'begleitung', prep: 'cum', woerter: ['amīcus', 'pater', 'māter', 'frāter', 'soror', 'servus'],   label: 'Begleitung (Ablativus sociativus)',           frage: 'Mit wem?' }
     ];
 
-    const ACI_LESSON = 8;         // L8: AcI als satzwertige Konstruktion
+    const ACI_LESSON = 9;         // L9: Accusativus cum Infinitivo (AcI)
+
+    // Der Numerus ist ebenfalls gestaffelt: Vor NounEngine.PLURAL_LESSON (Cursus L2) darf
+    // kein erzeugter Satz eine Pluralform enthalten - weder im Subjekt noch im Objekt,
+    // Attribut oder in der adverbialen Bestimmung.
+    const wuerfelPlural = (maxLesson, schwelle) =>
+        NounEngine.isPluralKnown(maxLesson) && Math.random() > (schwelle === undefined ? 0.5 : schwelle);
 
     const ALLE_ROLLEN = ['sub', 'praed', 'obj', 'dat', 'attr', 'abl', 'adv'];
 
@@ -153,9 +161,12 @@ const SentenceEngine = (() => {
     // ================= Bausteine =================
 
     /** Baut eine adverbiale Bestimmung im Ablativ, oder null. */
-    function baueAdverbiale(nounPool, belegt) {
+    function baueAdverbiale(nounPool, belegt, maxLesson) {
         const frei = belegt ? nounPool.filter(n => !belegt.has(n.latin)) : nounPool;
+        // Cursus trennt beides: praepositionale Verbindung ab L7, blosser Ablativ erst ab L8.
+        const bloss = ((maxLesson == null) ? 999 : maxLesson) >= ADVERBIAL_BLOSS_LESSON;
         const moeglich = ADVERBIALE
+            .filter(t => t.prep || bloss)
             .map(t => ({ typ: t, treffer: t.woerter.filter(w => frei.some(n => n.latin === w)) }))
             .filter(x => x.treffer.length > 0);
         if (!moeglich.length) return null;
@@ -165,7 +176,7 @@ const SentenceEngine = (() => {
         if (!nomen) return null;
         if (belegt) belegt.add(nomen.latin);
 
-        const numerus = Math.random() > 0.75 ? 'pl' : 'sg';   // meist Singular, idiomatischer
+        const numerus = wuerfelPlural(maxLesson, 0.75) ? 'pl' : 'sg';   // meist Singular, idiomatischer
         const abl = form(nomen, 'abl', numerus) || form(nomen, 'abl', 'sg');
         if (!abl) return null;
 
@@ -259,7 +270,7 @@ const SentenceEngine = (() => {
         const subNomen = waehleGewichtet(subPool);
         belegt.add(subNomen.latin);
 
-        const plural = Math.random() > 0.5;
+        const plural = wuerfelPlural(maxLesson);
         const subForm = form(subNomen, 'nom', plural ? 'pl' : 'sg');
         if (!subForm) return null;
 
@@ -275,12 +286,12 @@ const SentenceEngine = (() => {
         // respondēre im Wortschatz, baut aber kein Objekt - "puella respondet"
         // ist korrekt und verlangt nichts, was noch nicht gelehrt wurde.
         if ((valenz === 'dat' || valenz === 'dat+akk') && darf('dat') && maxLesson >= DATIVOBJEKT_LESSON) {
-            const t = baueObjekt(nomen, belegt, 'dat', verb);
+            const t = baueObjekt(nomen, belegt, 'dat', verb, maxLesson);
             if (!t) return null;
             tokens.push(t);
         }
-        if ((valenz === 'akk' || valenz === 'dat+akk') && darf('obj')) {
-            const t = baueObjekt(nomen, belegt, 'akk', verb);
+        if ((valenz === 'akk' || valenz === 'dat+akk') && darf('obj') && maxLesson >= AKKUSATIVOBJEKT_LESSON) {
+            const t = baueObjekt(nomen, belegt, 'akk', verb, maxLesson);
             if (!t) return null;
             tokens.push(t);
         }
@@ -317,7 +328,7 @@ const SentenceEngine = (() => {
         const subNomen = waehleGewichtet(nomNomen);
         belegt.add(subNomen.latin);
 
-        const plural = Math.random() > 0.5;
+        const plural = wuerfelPlural(maxLesson);
         const subForm = form(subNomen, 'nom', plural ? 'pl' : 'sg');
         // Passiv-Perfekt/-Plusquamperfekt sind zusammengesetzt: PPP muss zum Subjekt passen.
         const subGenus = NounEngine.decline(subNomen).gender;
@@ -343,7 +354,7 @@ const SentenceEngine = (() => {
             if (kandidaten.length) {
                 const agens = waehleGewichtet(kandidaten);
                 belegt.add(agens.latin);
-                const abl = form(agens, 'abl', Math.random() > 0.5 ? 'pl' : 'sg');
+                const abl = form(agens, 'abl', wuerfelPlural(maxLesson) ? 'pl' : 'sg');
                 if (abl) {
                     const prep = /^[aeiouāēīōūAEIOUĀĒĪŌŪ]/.test(abl) ? 'ab' : 'ā';
                     tokens.push({
@@ -359,13 +370,13 @@ const SentenceEngine = (() => {
         return { tokens, tempus: tLabel, genus: 'Passiv', verb };
     }
 
-    function baueObjekt(nomen, belegt, kasus, verb) {
+    function baueObjekt(nomen, belegt, kasus, verb, maxLesson) {
         const pool = mitKasus(nomen, kasus).filter(n => !belegt.has(n.latin));
         if (!pool.length) return null;
         const n = waehleGewichtet(pool);
         belegt.add(n.latin);
 
-        const numerus = Math.random() > 0.5 ? 'pl' : 'sg';
+        const numerus = wuerfelPlural(maxLesson) ? 'pl' : 'sg';
         const text = form(n, kasus, numerus);
         if (!text) return null;
 
@@ -391,7 +402,7 @@ const SentenceEngine = (() => {
             if (pool.length) {
                 const n = waehleGewichtet(pool);
                 belegt.add(n.latin);
-                const text = form(n, 'gen', Math.random() > 0.5 ? 'pl' : 'sg');
+                const text = form(n, 'gen', wuerfelPlural(maxLesson) ? 'pl' : 'sg');
                 if (text) {
                     const bezug = waehle(bezugsfaehig);
                     tokens.push({
@@ -404,7 +415,7 @@ const SentenceEngine = (() => {
         }
 
         if (darf('adv') && maxLesson >= ADVERBIAL_LESSON && Math.random() > 0.4) {
-            const adv = baueAdverbiale(nomen, belegt);
+            const adv = baueAdverbiale(nomen, belegt, maxLesson);
             if (adv) tokens.push(adv);
         }
     }
@@ -563,7 +574,7 @@ const SentenceEngine = (() => {
             if (!kopfPool.length) continue;
             const kopfSub = waehleGewichtet(kopfPool);
             const belegt = new Set([kopfSub.latin]);
-            const kopfPlural = Math.random() > 0.5;
+            const kopfPlural = wuerfelPlural(maxLesson);
             const kopfSubForm = form(kopfSub, 'nom', kopfPlural ? 'pl' : 'sg');
 
             let kopfFormen;
@@ -577,7 +588,7 @@ const SentenceEngine = (() => {
                 .filter(n => !belegt.has(n.latin));
             if (!akkPool.length) continue;
             const akkNomenWahl = waehleGewichtet(akkPool);
-            const akkNumerus = Math.random() > 0.5 ? 'pl' : 'sg';
+            const akkNumerus = wuerfelPlural(maxLesson) ? 'pl' : 'sg';
             const akkForm = form(akkNomenWahl, 'akk', akkNumerus);
             if (!akkForm) continue;
 
@@ -645,6 +656,8 @@ const SentenceEngine = (() => {
         ACI_LESSON,
         ATTRIBUT_LESSON,
         ADVERBIAL_LESSON,
+        ADVERBIAL_BLOSS_LESSON,
+        AKKUSATIVOBJEKT_LESSON,
         DATIVOBJEKT_LESSON,
         PASSIV_LESSON,
         // für Tests und Spiele nützlich:

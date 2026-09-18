@@ -1,3 +1,13 @@
+// Kultur-Quiz für Quiz.html.
+//
+// ACHTUNG: Diese 26 Fragen stammen unverändert aus der Pontes-Fassung und folgen deren
+// Kulturseiten. Für den Cursus sind sie NICHT geprüft. Die Kulturthemen der ersten
+// Cursus-Lektionen lauten:
+//   L1 Römisches Wohnen   L2 Die römische Familie   L3 Das Römische Reich
+//   L4 Wagenrennen        L5 Das Forum Romanum      L6 Reisen zur See
+// Zu "Das Römische Reich" und "Reisen zur See" gibt es bisher überhaupt keine Fragen;
+// die vorhandenen Kategorien "Schule im alten Rom" und "Leben auf dem Land" gehören im
+// Cursus in spätere Abschnitte.
 const quizQuestions = [
     {
         category: "Wohnen im alten Rom",

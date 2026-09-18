@@ -31,20 +31,20 @@ const VerbEngine = (() => {
     // davon, wann das einzelne Wort selbst eingeführt wurde). Präsens Aktiv braucht
     // keinen Eintrag, da es automatisch verfügbar ist, sobald das Wort im Pool ist.
     const TEMPUS_LESSON_AKTIV = {
-        'Perfekt': 10,
-        'Imperfekt': 12,
-        'FuturI': 13,
-        'Plusquamperfekt': 14
+        'Imperfekt': 10,
+        'Perfekt': 11,
+        'Plusquamperfekt': 13,
+        'FuturI': 25
     };
 
     // Passiv wird komplett ab Lektion 15 (Präsensstamm-Zeiten) bzw. 16 (Perfektsystem,
     // da dort das PPP eingeführt wird) bekannt.
     const TEMPUS_LESSON_PASSIV = {
-        'Präsens': 15,
-        'Imperfekt': 15,
-        'FuturI': 15,
-        'Perfekt': 16,
-        'Plusquamperfekt': 16
+        'Perfekt': 18,
+        'Plusquamperfekt': 18,
+        'Präsens': 20,
+        'Imperfekt': 20,
+        'FuturI': 25
     };
 
     const TEMPORA = ['Präsens', 'Imperfekt', 'FuturI', 'Perfekt', 'Plusquamperfekt'];
@@ -462,7 +462,7 @@ const VerbEngine = (() => {
     // ============================================================
 
     // Ab welcher Lektion der Imperativ grundsätzlich bekannt ist.
-    const IMPERATIV_LESSON = 4;
+    const IMPERATIV_LESSON = 6;
 
     // Lexikalisierte Kurzformen (Sg.) bei sonst regulären konsonantischen/
     // gemischten Verben - der Plural bleibt jeweils regulär.
@@ -538,10 +538,10 @@ const VerbEngine = (() => {
     // eigene Zitierform als "Präsens" und die periphrastische Perfekt-Form.
 
     const INFINITIV_LESSON = {
-        'Präsens|Aktiv': 2,
-        'Perfekt|Aktiv': 10,
-        'Präsens|Passiv': 15,
-        'Perfekt|Passiv': 16
+        'Präsens|Aktiv': 1,
+        'Perfekt|Aktiv': 14,
+        'Perfekt|Passiv': 18,
+        'Präsens|Passiv': 20
     };
 
     /**
@@ -618,7 +618,7 @@ const VerbEngine = (() => {
     // Nom./Akk. Pl. Neutrum -ia). Ablativ Singular hier bewusst auf "-e" (verbale
     // Verwendung im Participium coniunctum), nicht "-ī" (rein adjektivischer Gebrauch).
 
-    const PPA_LESSON = 20;
+    const PPA_LESSON = 21;
 
     /**
      * Prüft, ob für dieses Verb ein PPA gebildet wird. esse (und seine Komposita)
@@ -687,8 +687,8 @@ const VerbEngine = (() => {
     // echte lexikalische Unregelmäßigkeiten.
 
     const KONJUNKTIV_LESSON = {
-        'Imperfekt': 24, 'Plusquamperfekt': 24,
-        'Präsens': 28, 'Perfekt': 29
+        'Imperfekt': 22, 'Plusquamperfekt': 23,
+        'Präsens': 26, 'Perfekt': 26
     };
 
     // Konjunktiv Präsens der 4 "harten" Unregelmäßigen (nicht herleitbar)
@@ -815,8 +815,8 @@ const VerbEngine = (() => {
 
     // Gerundium und Gerundivum werden im Lehrbuch NICHT gemeinsam eingeführt:
     // T2 behandelt das Gerundium, erst T3 das Gerundivum.
-    const GERUNDIUM_LESSON  = 33; // T2
-    const GERUNDIVUM_LESSON = 34; // T3
+    const GERUNDIUM_LESSON  = 31; // L31: nd-Form I
+    const GERUNDIVUM_LESSON = 31; // L31: nd-Form II
 
     /**
      * esse/posse/velle/nōlle/fierī (und esse-Komposita) bilden klassisch kein

@@ -121,7 +121,7 @@
 
             <div style="display:flex; flex-direction:column; gap:10px; width:100%; max-width:320px;">
                 <button class="main-btn" id="btn-start-uo">Reguläre Adjektive (-us/-a/-um)</button>
-                <button class="main-btn" id="btn-start-i">i-Deklination (ab Lektion 17)</button>
+                <button class="main-btn" id="btn-start-i">konsonantische Deklination (ab Lektion 15)</button>
                 <button class="main-btn" id="btn-start-mixed">Gemischt</button>
             </div>
             <a href="index.html" class="main-btn" style="background: var(--wand-tief); color: var(--ink); font-size: 0.9rem; padding: 10px 20px;">Zurück zum Menü</a>
@@ -165,7 +165,7 @@
         // --- GRAMMATIK ENGINE (KNG) ---
         // Definition der möglichen Fälle. 0=Nom, 1=Gen, 2=Dat, 3=Akk, 4=Abl
         // Nur Kasus, die bis zur gewählten Lektion drangekommen sind. Nominativ
-        // und Akkusativ gibt es ab L1, der Genitiv erst ab L6 - in Lektion 5
+        // und Akkusativ gibt es ab L3, der Genitiv erst ab L4 - in Lektion 3
         // bekamen die Schüler hier also Genitive, die noch nicht dran waren.
         // Dativ und Ablativ waren hier schon immer ausgenommen.
         let maxSelectedLesson = 999;
@@ -315,8 +315,8 @@
 
             if (nounPool.length === 0 || adjPool.length === 0) {
                 const hinweis = adjMode === 'i'
-                    ? "In den ausgewählten Lektionen gibt es noch keine i-Deklination-Adjektive (die ersten kommen erst ab Lektion 17 dazu). Bitte wähle mindestens Lektion 17 mit aus."
-                    : "In den ausgewählten Lektionen gibt es noch keine passenden Adjektive (die ersten Adjektive kommen erst ab Lektion 5 dazu). Bitte wähle mindestens Lektion 5 oder 6 mit aus.";
+                    ? "In den ausgewählten Lektionen gibt es noch keine Adjektive der konsonantischen Deklination (die ersten kommen erst ab Lektion 15 dazu). Bitte wähle mindestens Lektion 15 mit aus."
+                    : "In den ausgewählten Lektionen gibt es noch keine passenden Adjektive (die ersten Adjektive kommen erst ab Lektion 6 dazu). Bitte wähle mindestens Lektion 6 mit aus.";
                 alert(hinweis);
                 return;
             }

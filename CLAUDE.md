@@ -1,12 +1,19 @@
-# Lūdī Rōmānī / Latein-Arena – Projektkontext für Claude Code
+# Lūdī Rōmānī / Latein-Arena (Cursus) – Projektkontext für Claude Code
 
-Latein-Lernplattform zum Lehrbuch *Pontes* (Lektion 0–35 + T1–T4), Gymnasium Baden-Württemberg.
+Latein-Lernplattform zum Lehrbuch *Cursus* (Neue Ausgabe), Gymnasium Baden-Württemberg.
 Browserbasiert, kein Server/Backend, kein Login – reines HTML/CSS/JS, Fortschritt liegt lokal im
 `localStorage` des jeweiligen Browsers.
 
+> **Status: Umbau bis Lektion 6.** Dieser Ordner ist aus der Pontes-Arena (Stand `23a03c1`)
+> hervorgegangen. Umgestellt sind der Wortschatz (Cursus L1–6), sämtliche Lektionszahlen in den
+> Engines und die Lektionsangaben in den Spieltexten. **Nicht** umgestellt sind das Kultur-Quiz
+> und die handkuratierten Sätze in `Pronomina.html` – beide tragen noch Pontes-Inhalte und sind
+> im Spiel entsprechend gekennzeichnet. Stand und offene Punkte: `UMBAU-CURSUS.md`.
+
 ## Grundprinzip
 
-Alle Spiele arbeiten mit echtem, lektionsgefiltertem Wortschatz aus `vocabulary.js` (900+ Einträge).
+Alle Spiele arbeiten mit echtem, lektionsgefiltertem Wortschatz aus `vocabulary.js` (derzeit 175
+Einträge, Lektion 1–6 nach den Wortschatzseiten des Cursus).
 Schüler:innen wählen vor jeder Runde, bis zu welcher Lektion geübt werden soll (`lessonFilter.js`).
 Formen werden **live generiert**, nicht aus festen Beispielsätzen – deshalb wiederholen sich Sätze
 praktisch nie, und der Schwierigkeitsgrad wächst automatisch mit der Lektionsauswahl mit.
@@ -57,6 +64,8 @@ praktisch nie, und der Schwierigkeitsgrad wächst automatisch mit der Lektionsau
   (hic/ille/is, KNG-Kongruenz-generiert), Relativ (quī/quae/quod – Kasus kommt von der Funktion
   im Nebensatz, NICHT vom Bezugswort!).
 - **Quiz.html** – statisches Kultur-Quiz (`quizData.js`), nicht wortschatz-basiert.
+  **Noch Pontes-Fragen**; zwei Cursus-Kulturthemen (Das Römische Reich L3, Reisen zur See L6)
+  haben bisher gar keine Fragen.
 - **Achievements.html** – Trophäensammlung-Übersichtsseite.
 - **index.html** – Hauptmenü.
 
@@ -81,6 +90,9 @@ LektionsCheck.html, Genitiv.html (Compone!) – alle redundant zu neueren/reichh
   Testumgebung liegt in `C:\Users\konra\latein-tests` (Node + jsdom), bewusst AUSSERHALB des
   OneDrive-Ordners – `node_modules` gehört nicht in die Synchronisierung und nicht ins Repo.
   Wiederverwendbare Testbasis dort: `harness.js` (`loadScripts([...])` → `{ ev, errors }`).
+  **Der Harness zeigt per Standard auf die Pontes-Arena.** Für diese Fassung die Umgebungsvariable
+  setzen, sonst testet man das falsche Projekt:
+  `LATEIN_PROJ=".../Latein_Plattform_Cursus" node test-gating-cursus.js`
   Zwei Fallstricke, die dabei jedes Mal zuschlagen:
   - **`window.eval(quelltext)` funktioniert NICHT** zum Laden der Projektdateien. Deren Globals
     (`globalVocabularyPool`, `NounEngine`, `VerbEngine` ...) sind top-level `const` – solche
@@ -131,56 +143,64 @@ LektionsCheck.html, Genitiv.html (Compone!) – alle redundant zu neueren/reichh
 
 ## Lehrgang: was wann drankommt
 
-Aus dem Inhaltsverzeichnis von *Pontes* übernommen – **die verbindliche Quelle für jedes
-Lektions-Gating**. Nicht aus dem Gedächtnis ergänzen, sondern hier nachschlagen.
+Aus dem Inhaltsverzeichnis von *Cursus* (Neue Ausgabe) übernommen – **die verbindliche Quelle für
+jedes Lektions-Gating**. Nicht aus dem Gedächtnis ergänzen, sondern hier nachschlagen.
 
-Die Transitio-Lektionen T1–T4 sind im Code als **Lektion 32–35** geführt (T1=32 … T4=35);
-im Buch stehen sie nach L31 und können in beliebiger Reihenfolge bearbeitet werden.
+Cursus hat 36 Lektionen, gruppiert in neun Blöcke mit je einer "Insel" als Wiederholung. Die
+Lektionen 31–36 sind im Buch mit ★ markiert (Übergang zur Lektüre).
 
-| L | Syntax | Formenlehre |
+| L | Satzlehre | Formenlehre |
 |---|---|---|
-| S | Subjekt/Prädikat, „verstecktes“ Subjekt, Substantiv als Prädikatsnomen | |
-| 1 | **Akkusativobjekt** | Subst. Nom.+Akk. Sg. (o-/a-/kons.), Verben 3. P. Sg. |
-| 2 | Kongruenz Subjekt–Prädikat | Subst. Nom.+Akk. Pl., Neutra o-Dekl., Vokativ, Verben 3. P. Pl., **Infinitiv** |
-| 3 | adverbiale Bestimmung: Richtungsangabe | Verben 1.+2. P., *esse*, Personalpron. (1.+2.), Präp. + Akk. |
-| 4 | Frage- und Aufforderungssätze | **Imperativ**, *posse* |
-| 5 | Adjektiv/Substantiv als Attribut, Adjektiv als Prädikatsnomen, **KNG-Kongruenz** | Adjektive o-/a-Dekl., gem. Konjugation |
-| 6 | **Genitiv als Attribut**, Possessivpronomina | **Genitiv**, Possessivpronomina |
-| 7 | **Ablativ als adverbiale Bestimmung** (Ort, Herkunft, Begleitung, Mittel, Zeit) | **Ablativ**, *īre* |
-| 8 | **AcI als satzwertige Konstruktion** | Adverbien zu Adj. der o-/a-Dekl. |
-| 9 | **Dativobjekt**, Demonstrativpron. *is* | **Dativ**, *is* |
-| 10 | Perfekt, **Zeitverhältnisse im AcI** | **Perfekt**, **Infinitiv der Vorzeitigkeit** |
-| 11 | adverbiale Nebensätze | *hic*, *ille*, weitere Perfektbildungen |
-| 12 | Imperfekt vs. Perfekt | **Imperfekt**, Neutra kons. Dekl. |
-| 13 | Futur, Substantivierung von Adjektiven | **Futur I**, *ipse* |
-| 14 | Plusquamperfekt | **Plusquamperfekt** |
-| 15 | **Passiv** | Präsens/Imperfekt/Futur Passiv, **Infinitiv Präsens Passiv** |
-| 16 | Relativsätze | Perfekt+Plusquamperfekt Passiv, **Infinitiv Perfekt Passiv**, **PPP**, Relativpronomen |
-| 17 | relativer Satzanschluss | Adjektive i-Dekl. (*ācer, gravis, audāx*), Adverbien |
-| 18 | **PPP (Vorzeitigkeit, Passiv) im Participium coniunctum** | |
-| 19 | Genitiv possessivus/subiectivus/obiectivus/partitivus | Genitiv der Personalpron., *iste* |
-| 20 | **PPA (Gleichzeitigkeit, Aktiv) im Participium coniunctum** | **PPA** |
-| 21 | Akkusativ der Ausdehnung | e-Deklination |
-| 22 | **Ablativus absolutus** | |
-| 23 | Reflexivität im AcI, Satzgliedfunktion von AcI und Infinitiv | *velle* |
-| 24 | Irrealis der Gegenwart und Vergangenheit | **Konjunktiv Imperfekt + Plusquamperfekt** |
-| 25 | *ut*-Sätze (final, konsekutiv, Wunschsätze), *nē* / *ut nōn* | |
-| 26 | *cum*-Sätze (temporal, kausal, konzessiv) | u-Deklination |
-| 27 | **nominaler Abl. abs.**, Prädikativum | |
-| 28 | gleichzeitige konjunktivische Nebensätze, Partizipien attributiv | **Konjunktiv Präsens** |
-| 29 | vorzeitige konjunktivische Nebensätze, indirekte Fragesätze | **Konjunktiv Perfekt** |
-| 30 | Konjunktiv im Hauptsatz (Optativ, Jussiv, Adhortativ, Prohibitiv) | *ferre* |
-| 31 | Deponentien, **Partizip der Deponentien** | **Deponentien**, *fierī* |
-| T1 (32) | Dativ finalis/commodi/possessivus | *nōlle* |
-| T2 (33) | Verwendung des **Gerundiums**, Genitivus qualitatis | **Gerundium** |
-| T3 (34) | Verwendung des **Gerundivums** (mit und ohne *esse*), Dativus auctoris | **Gerundivum** |
-| T4 (35) | *(im vorliegenden Auszug des Inhaltsverzeichnisses nicht enthalten)* | |
+| 1 | Satzglieder: Subjekt und Prädikat; Darstellung im Satzmodell | **Infinitiv Präsens**, 3. P. Sg. Präsens, Nom. Sg., Genus des Substantivs |
+| 2 | Kongruenz von Prädikat und Subjekt; Satzarten beim Hauptsatz | Konjugationsklassen, 3. P. Pl. Präsens, **Nom. Pl.**, Vokativ |
+| 3 | **Akkusativ-Objekt**; Adverbiale | 1./2. P. Sg.+Pl. Präsens, Schema ā-/ē-/i-Konj. und *esse*, Deklinationsklassen, **Akkusativ** |
+| 4 | **Genitiv-Attribut** | konsonantische Deklination, **Genitiv** |
+| 5 | **Dativ-Objekt** | konsonantische Konjugation, **Dativ** |
+| 6 | Adjektiv-Attribut; Prädikatsnomen | Modus einer Verbform, **Imperativ**, Adjektive der ā-/o-Deklination |
+| 7 | Adverbiale: **Ablativ in präpositionaler Verbindung** | **Ablativ** |
+| 8 | Adverbiale: **Ablativ ohne Präposition**; Ablativfunktionen im Überblick | |
+| 9 | **AcI** | Endung -(e)r bei Substantiven und Adjektiven der o-Deklination |
+| 10 | Verwendung des Imperfekts; Satzreihe, Satzgefüge | **Imperfekt** |
+| 11 | Verwendung des Perfekts | **Perfekt** (-v-, -u-, -s-), Personzeichen des Perfekts |
+| 12 | | Perfekt mit Reduplikation/Dehnung/ohne Veränderung, Neutra kons. Dekl. |
+| 13 | Dativ des Besitzers | Personalpronomen 1.+2. Person, **Plusquamperfekt** |
+| 14 | **AcI: Zeitverhältnis** (gleichzeitig/vorzeitig); Zeitangaben | **Infinitiv Perfekt** |
+| 15 | | Adjektive der konsonantischen Deklination, Possessivpronomen, reflexives Personalpronomen |
+| 16 | Verwendung des reflexiven Personalpronomens | *is, ea, id* |
+| 17 | Relativsatz; Demonstrativpronomina | *quī, quae, quod*; *hic* – *ille* |
+| 18 | Verwendung Perfekt/Plusquamperfekt Passiv | **Genus verbi**, **PPP**, Perfekt + Plusquamperfekt Passiv |
+| 19 | **PPP als Participium coniunctum**, als Attribut, als Adverbiale | |
+| 20 | Verwendung der Adverbien | **Passiv im Präsensstamm** (Präsens/Imperfekt), Adverbbildung |
+| 21 | **PPA als Participium coniunctum**, als Attribut, als Adverbiale | **PPA** |
+| 22 | Konj. Imperfekt in Gliedsätzen mit *ut* und *nē* | **Konjunktiv**, Konj. Imperfekt Aktiv/Passiv |
+| 23 | Konj. Plusquamperfekt in Gliedsätzen mit *cum*; Zeitverhältnisse | **Konj. Plusquamperfekt** Aktiv/Passiv |
+| 24 | | Interrogativpronomen *quis? quid?*, *quī, quae, quod*; Komposita von *esse* |
+| 25 | Verwendung des Futurs | **Futur** Aktiv/Passiv |
+| 26 | Konj. Präsens und Perfekt mit *ut*, *nē*, *cum*; indirekte Fragesätze | **Konj. Präsens** Aktiv/Passiv, **Konj. Perfekt** Aktiv/Passiv |
+| 27 | Verwendung des Komparativs und Superlativs | e-Deklination, **Steigerung** von Adjektiven und Adverbien |
+| 28 | **Ablativus absolutus mit PPP** (Vorzeitigkeit) | *īre* und Komposita |
+| 29 | **Ablativus absolutus mit PPA** (Gleichzeitigkeit) | u-Deklination |
+| 30 | Konditionale Satzgefüge: Realis, Irrealis | |
+| 31 ★ | Verwendung des Gerundiums und des Gerundivums (Gerundivum-V) | **nd-Form I: Gerundium**, **nd-Form II: Gerundivum** |
+| 32 ★ | Verwendung des Gerundivums als Gerundivum-N | |
+| 33 ★ | | *velle – nōlle – mālle* |
+| 34 ★ | | **Deponentien** |
+| 35 ★ | **NcI** | *ferre* und Komposita, Semi-Deponentien |
+| 36 ★ | Konjunktiv in Hauptsätzen | *fierī* |
 
 Wo diese Zahlen im Code stehen: `VerbEngine.TEMPUS_LESSON_AKTIV/_PASSIV`, `INFINITIV_LESSON`,
-`IMPERATIV_LESSON`, `PPA_LESSON`, `KONJUNKTIV_LESSON`, `GERUNDIUM_LESSON`, `GERUNDIVUM_LESSON`
-sowie `SentenceEngine.ATTRIBUT_LESSON/ADVERBIAL_LESSON/DATIVOBJEKT_LESSON/PASSIV_LESSON`.
-`latein-tests/test-gating.js` prüft alle 22 Konstanten gegen diese Tabelle und dazu, dass die
+`IMPERATIV_LESSON`, `PPA_LESSON`, `KONJUNKTIV_LESSON`, `GERUNDIUM_LESSON`, `GERUNDIVUM_LESSON`,
+`NounEngine.KASUS_LESSON/PLURAL_LESSON` sowie `SentenceEngine.ATTRIBUT_LESSON/ADVERBIAL_LESSON/
+ADVERBIAL_BLOSS_LESSON/DATIVOBJEKT_LESSON/PASSIV_LESSON/ACI_LESSON`.
+`latein-tests/test-gating-cursus.js` prüft diese Konstanten gegen die Tabelle und dazu, dass die
 erzeugten Sätze pro Lektionsgrenze nichts Verfrühtes enthalten.
+
+Zwei Cursus-Eigenheiten, die beim Gating auffallen:
+- Der **Infinitiv steht schon in L1** – Cursus lernt das Verb über den Infinitiv, nicht über die
+  3. Person. Kastell und Principia dürfen also von Anfang an danach fragen.
+- Der **Ablativ zerfällt in zwei Stufen**: präpositional ab L7, bloßer Ablativ erst ab L8.
+  Dafür gibt es die zusätzliche Konstante `ADVERBIAL_BLOSS_LESSON`, die es in der Pontes-Fassung
+  nicht gibt.
 
 ## Offene Punkte / auf der Liste
 

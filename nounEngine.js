@@ -16,7 +16,7 @@ const NounEngine = (() => {
        sauber gattert, boten Kastell und Villa einfach alle fünf Kasus an. Eine
        siebte Klasse in Lektion 5 bekam dort Ablative zu bestimmen, die im
        Unterricht noch gar nicht vorgekommen waren. */
-    const KASUS_LESSON = { nom: 1, akk: 1, gen: 6, abl: 7, dat: 9 };
+    const KASUS_LESSON = { nom: 1, akk: 3, gen: 4, dat: 5, abl: 7 };
     const PLURAL_LESSON = 2;
 
     /** Welche Kasus darf ich bis zu dieser Lektion abfragen? ['nom','akk',...] */

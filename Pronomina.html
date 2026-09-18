@@ -132,6 +132,13 @@
         <!-- START: MODUS-AUSWAHL -->
         <div id="start-screen" class="start-screen">
             <h2 style="font-family: var(--font-display); color: var(--ink); margin-bottom: 15px;">Welchen Fall willst du lösen?</h2>
+            <div class="notice-box" style="border-color:#a33; background:rgba(170,50,50,0.08);">
+                <h3>⚠️ Noch nicht auf Cursus umgestellt</h3>
+                <p>Die Sätze dieses Spiels sind handkuratiert und benutzen den Pontes-Wortschatz.
+                   Im Cursus kommen Possessiv- und reflexive Personalpronomina erst in Lektion 15,
+                   <em>is, ea, id</em> in Lektion 16, <em>hic</em>/<em>ille</em> und <em>quī, quae, quod</em>
+                   in Lektion 17. Bis die Sätze ersetzt sind, passt dieses Spiel nicht zum Lehrgang.</p>
+            </div>
 
             <div class="notice-box">
                 <h3>🔍 Modus 1: Possessivpronomina</h3>
@@ -199,7 +206,8 @@
     </div>
 
     <script>
-        // Alle Sätze verwenden ausschließlich Wortschatz aus Salvē bis Lektion 6.
+        // ACHTUNG: Diese Sätze stammen aus der Pontes-Fassung (Wortschatz Salvē bis Pontes-L6)
+        // und sind für den Cursus noch nicht ersetzt - siehe Hinweiskasten im Startbildschirm.
         // Jede Form wurde einzeln gegen die Deklinations-/Konjugationsregeln geprüft.
         const cases = [
             {
