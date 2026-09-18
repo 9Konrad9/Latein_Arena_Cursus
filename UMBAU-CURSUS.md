@@ -87,9 +87,11 @@ gemacht (sie hatten Pontes-Wörter bzw. die Zahl 8 fest verdrahtet).
    Bei der Gelegenheit `perfectLesson` pro Verb prüfen: Cursus verteilt die Perfektbildungen
    auf L11 (-v-, -u-, -s-) und L12 (Reduplikation, Dehnung, ohne Veränderung).
 
-5. **Veröffentlichung.** Dieses Repository hat noch kein Remote. Die Pontes-Arena liegt auf
-   `github.com/9Konrad9/Latein_Plattform`; für die Cursus-Fassung wäre ein eigenes Repository
-   nötig, falls sie wie die andere über GitHub Pages laufen soll.
+5. **Veröffentlichung.** Das Repository liegt öffentlich auf
+   `github.com/9Konrad9/Latein_Arena_Cursus`, GitHub Pages läuft von `main` aus dem
+   Wurzelverzeichnis. Adresse für die Klasse:
+   **https://9konrad9.github.io/Latein_Arena_Cursus/**
+   (Die Pontes-Arena liegt unverändert auf `9Konrad9/Latein_Plattform`.)
 
 ## Testlauf
 
