@@ -504,12 +504,29 @@
         //   pronomina 15 Possessiv- und reflexives Personalpronomen.
         const FREI_AB = { kastell: 3, viaromana: 3, pendel: 3, villa: 6, arcus: 9, pronomina: 15 };
 
+        // Von Hand abgeschaltet: Spiele, die (noch) nicht benutzt werden sollen, obwohl die
+        // Grammatik reichen würde. Bewusst eine eigene Liste und nicht FREI_AB mit einer
+        // erfundenen Lektionszahl - "Ab Lektion 3" wäre hier eine falsche Begründung, und
+        // falsche Begründungen im Menü fallen später niemandem mehr auf.
+        // Einen Namen hier herausnehmen gibt das Spiel wieder frei.
+        const NICHT_FREIGEGEBEN = ['principia', 'duell', 'quiz'];
+
         const maxLektion = Math.max.apply(null, globalVocabularyPool.map(v => v.lesson));
         const erreichbar = Math.min(KLASSENSTAND, maxLektion);
 
         document.querySelectorAll('.game-card[data-game]').forEach(card => {
             const gameId = card.getAttribute('data-game');
             const badge = card.querySelector('.progress-badge');
+
+            if (NICHT_FREIGEGEBEN.indexOf(gameId) !== -1) {
+                card.classList.add('gesperrt');
+                const btn = card.querySelector('.play-btn');
+                btn.classList.add('gesperrt');
+                btn.removeAttribute('href');
+                btn.innerText = 'Noch nicht freigegeben';
+                badge.innerText = 'Kommt später';
+                return;
+            }
 
             if (FREI_AB[gameId] > erreichbar) {
                 card.classList.add('gesperrt');
