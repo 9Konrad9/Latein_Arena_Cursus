@@ -165,6 +165,14 @@ betrifft:
   übernommen. Es liest keinen Wortschatz und kennt keine Lektionszahlen, am Lehrbuch hängt
   daran nichts. Es steht als Pille oben rechts im Hauptmenü, nicht als Karte zwischen den
   Spielen. `test-silentium.js` läuft gegen diese Fassung durch.
+- `Bomba.html` und `Fliegenklatsche.html` – die beiden Gruppenspiele. Sie arbeiten mit dem
+  Lektionsfilter und laufen deshalb ohne Anpassung auf dem Cursus-Wortschatz.
+
+  **Ein Unterschied zur Pontes-Fassung, mit Absicht:** Die Karten der Gruppenspiele tragen
+  kein `progress-badge` (die Leistung gehört der Gruppe, nicht dem Gerät). Die Schleife im
+  Hauptmenü fasst das Band dort aber ungeprüft an. In der Pontes-Arena wirft sie deswegen an
+  der ersten solchen Karte, und die sieben Karten dahinter bleiben ohne Fortschrittszeile –
+  nachgemessen, nicht vermutet. Hier steht ein `if (!badge) return;` davor.
 
 **Noch NICHT übernommen** – das ist kein Versehen, sondern der Stand:
 
@@ -174,7 +182,7 @@ betrifft:
 - Die **Wiederholungsrunde in den übrigen Spielen** (Circus, Duell, Principia, Villa,
   Pronomina, Arcus, Pendel, ViaRomana). `test-wiederholung.js` und `test-arcus.js`/
   `test-principia.js` schlagen deshalb an – sie prüfen eine Fähigkeit, die hier fehlt.
-- Die **neuen Spiele** Bomba und Fliegenklatsche.
+  (Bomba und Fliegenklatsche sind inzwischen übernommen, siehe oben.)
 - Der **zweite Modus von Via Rōmāna** („Nur Ablativ – welche Funktion?"), der ohnehin erst
   ab L7 greift.
 

@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Bomba - Lūdī Rōmānī</title>
+    <script src="vocabulary.js"></script>
+    <script src="progress.js"></script>
+    <script src="achievementToast.js"></script>
+    <script src="lessonFilter.js"></script>
+    <link rel="stylesheet" href="theme.css">
+    <style>
+        /* Palette und geteilte Bausteine stehen in theme.css.
+           Hier nur, was die Bomba allein braucht.
+
+           Das Spiel läuft an EINEM Gerät, das herumgereicht wird. Daraus
+           folgt fast alles: grosse Tippflächen, nichts was auf Hover
+           angewiesen wäre, kein Text am Rand (Daumen liegen dort), und das
+           Gerät wird dauernd gedreht - Hoch- und Querformat müssen beide
+           gehen, ohne dass die Antwortknöpfe aus dem Bild wandern. */
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        html { height: 100%; overflow: hidden; }
+
+        body {
+            font-family: var(--font-body);
+            color: var(--ink);
+            /* vh zuerst als Rückfall, dann svh: die kleine Bildschirmhöhe rechnet
+               immer mit eingeblendeter Browserleiste.
+               min-height: 0 schaltet das min-height: 100vh aus theme.css ab - es
+               würde die eigene Höhe sonst überstimmen (min-height schlägt height). */
+            height: 100vh;
+            height: 100svh;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            user-select: none; -webkit-user-select: none;
+        }
+
+        /* ---------- Kopfleiste mit der Bombe ---------- */
+
+        .kopf {
+            flex: 0 0 auto;
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+            padding: 6px 12px 6px 58px;   /* links Platz für den Haus-Knopf */
+            background: rgba(244, 236, 219, 0.94);
+            border-bottom: 3px solid var(--bronze);
+        }
+
+        /* Die Bombe zeigt NICHT, wie weit die Lunte schon heruntergebrannt ist.
+           Hier stand zuerst ein schrumpfender Balken - und der war genau die
+           Uhr, die es nicht geben darf: Wer sieht, dass nur noch ein Viertel
+           übrig ist, schiebt das Gerät gezielt weiter. Eine Sekundenanzeige
+           wäre dasselbe in Ziffern.
+           Was bleibt, ist ein Funke, der immer gleich flackert - er sagt „es
+           brennt", nicht „wie lange noch". Die Restzeit hört man allenfalls am
+           Ticken, und auch das nur ungefähr, weil die Gesamtdauer je Runde
+           gewürfelt wird. */
+        .lunte-feld {
+            flex: 0 0 auto;
+            display: flex; align-items: center; gap: 2px;
+        }
+
+        .bombe {
+            /* kontrast-ok: Auf der Bombe steht kein Text - der dunkle Verlauf ist
+               der Gegenstand selbst, nicht der Grund einer Schrift. Der Vermerk
+               muss INNERHALB der geschweiften Klammern stehen, sonst sieht ihn
+               pruefe-theme.js nicht. */
+            flex: 0 0 auto;
+            width: 34px; height: 34px; border-radius: 50%;
+            background: radial-gradient(circle at 34% 30%, #6d645c 0%, #2a2018 72%);
+            position: relative;
+        }
+        .bombe::after {          /* der Hals, in dem die Lunte steckt */
+            content: ''; position: absolute; top: -6px; right: 7px;
+            width: 10px; height: 10px; border-radius: 2px;
+            background: #4a4038;
+        }
+
+        /* Ein Stummel Lunte, der nie kürzer wird. */
+        .lunte {
+            width: 22px; height: 8px;
+            border-radius: 4px;
+            background: var(--bronze);
+        }
+        /* Der Funke flackert immer gleich schnell. Würde er zum Schluss hin
+           schneller zucken, wäre er wieder eine Anzeige. */
+        .flamme {
+            font-size: 1.4rem; line-height: 1;
+            pointer-events: none;
+            animation: zucken 0.42s infinite alternate;
+        }
+        @keyframes zucken {
+            from { transform: scale(1)    rotate(-6deg); }
+            to   { transform: scale(1.18) rotate(6deg); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .flamme { animation: none; }
+        }
+        /* Zwischen den Runden brennt nichts. */
+        .lunte-feld.aus .flamme { visibility: hidden; }
+
+        .werkzeuge { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+        /* Umschalter Latein <-> Deutsch, zwei Knöpfe statt eines Schalters:
+           Auf einen Blick ist zu sehen, welche Richtung gerade läuft. */
+        .richtung { display: flex; border: 2px solid var(--bronze); border-radius: 8px; overflow: hidden; }
+        .richtung button {
+            border: none; background: var(--putz-hell); color: var(--ink-soft);
+            font-family: var(--font-body); font-weight: bold; font-size: 0.85rem;
+            padding: 7px 11px; cursor: pointer; touch-action: manipulation;
+        }
+        .richtung button.aktiv { background: var(--pompeji); color: var(--marmor); }  /* kontrast-ok: 6,08 */
+        .richtung button + button { border-left: 2px solid var(--bronze); }
+
+        /* ---------- Zähler ---------- */
+
+        .zaehler-feld {
+            display: flex; align-items: center; gap: 6px;
+            font-family: var(--font-display);
+        }
+        .zaehler-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-soft); }
+        .zaehler {
+            font-weight: bold; font-size: 1.5rem; line-height: 1;
+            font-variant-numeric: tabular-nums; color: var(--ink);
+            min-width: 1.6ch; text-align: center;
+        }
+        .zaehler.best { color: var(--pompeji); }   /* kontrast-ok: 6,40 auf --putz */
+
+        /* ---------- Bühne ---------- */
+
+        .buehne {
+            flex: 1 1 auto;
+            min-height: 0;                /* darf schrumpfen, sonst quillt sie unten heraus */
+            display: flex; flex-direction: column;
+            gap: 10px; padding: 10px 12px 14px;
+            overflow: hidden;
+        }
+
+        /* Die Frage nimmt den beweglichen Platz, die Antworten NICHT. Sonst
+           wiederholt sich der Fehler aus dem Duell: Auf einem kurzen Schirm
+           wurden die Knöpfe unten abgeschnitten und waren nicht mehr zu
+           erreichen. Was man antippen muss, darf nie das sein, was schrumpft. */
+        .frage-karte {
+            flex: 1 1 auto; min-height: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 6px; padding: 10px 14px 15px;   /* unten Platz fuer die Kartenuhr */
+            background: var(--putz-hell);
+            border: 3px solid var(--bronze); border-radius: 12px;
+            box-shadow: var(--schatten);
+            overflow: hidden;
+            position: relative;      /* traegt die Kartenuhr am Fuss */
+        }
+        .frage-art {
+            font-size: clamp(0.7rem, 2vh, 0.95rem);
+            text-transform: uppercase; letter-spacing: 1.5px;
+            color: var(--ink-soft);            /* kontrast-ok: 6,15 auf --putz-hell */
+            text-align: center;
+        }
+        .frage-wort {
+            font-family: var(--font-display); font-weight: bold;
+            font-size: clamp(1.4rem, 7.5vh, 3.4rem);
+            line-height: 1.1; text-align: center;
+            color: var(--ink);                 /* kontrast-ok: 13,34 auf --putz-hell */
+            overflow-wrap: break-word;
+        }
+
+        /* Die Zeit fuer DIESE Karte, am Fuss der Frage-Karte. Bewusst anders
+           platziert und anders gefaerbt als alles oben in der Kopfleiste: Sie
+           darf nicht mit der Bombe verwechselt werden. */
+        .kartenuhr {
+            position: absolute; left: 0; right: 0; bottom: 0; height: 7px;
+            background: var(--wand-tief);
+            border-radius: 0 0 9px 9px; overflow: hidden;
+        }
+        .kartenuhr-rest {
+            height: 100%; width: 100%;
+            background: var(--bronze);
+            transition: background-color 0.25s linear;
+        }
+        .kartenuhr-rest.knapp { background: var(--pompeji); }
+
+        .band {
+            flex: 0 0 auto;
+            display: none;
+            text-align: center; padding: 9px 12px; border-radius: 9px;
+            background: var(--falsch); color: var(--marmor);   /* kontrast-ok: 5,12 */
+            border: 2px solid #7d2020;
+            font-family: var(--font-display); font-weight: bold;
+            font-size: clamp(0.8rem, 2.3vh, 1.1rem); line-height: 1.3;
+        }
+
+        .antworten {
+            flex: 0 0 auto;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+        }
+        /* Aussehen steht in theme.css. Hier nur, was am geteilten Gerät
+           gemessen wurde: fingergerechte Mindesthöhe und eine Schrift,
+           die mit der Schirmhöhe mitwächst. */
+        .antwort-btn {
+            font-size: clamp(0.85rem, 2.5vh, 1.25rem);
+            min-height: clamp(50px, 9vh, 78px);
+            padding: 8px 10px;
+        }
+
+        /* Im Hochformat stehen vier lange Bedeutungen nebeneinander zu eng. */
+        @media (max-width: 520px) {
+            .antworten { grid-template-columns: 1fr; gap: 6px; }
+            .antwort-btn { min-height: clamp(44px, 7.5vh, 62px); }
+            .kopf { padding-left: 52px; gap: 8px; }
+        }
+
+        /* ---------- Übergabe ---------- */
+
+        /* Bewusst ein eigener Schritt mit Tippen statt automatisch weiter: So
+           deckt die Karte erst auf, wer das Gerät wirklich schon in der Hand
+           hat. Liefe es automatisch weiter, könnte die vorige Person noch
+           mitlesen - und die Übergabe wäre keine. Die Lunte brennt derweil
+           weiter, Trödeln kostet also. */
+        .uebergabe {
+            position: fixed; inset: 0; z-index: 400;
+            display: none; flex-direction: column;
+            align-items: center; justify-content: center; gap: 22px;
+            background: var(--richtig);
+            color: var(--marmor);              /* kontrast-ok: 5,16 auf --richtig */
+            text-align: center; padding: 24px;
+        }
+        .uebergabe-pfeil { font-size: clamp(3rem, 14vh, 6rem); line-height: 1; }
+        .uebergabe-text {
+            font-family: var(--font-display); font-weight: bold;
+            font-size: clamp(1.6rem, 7vh, 3rem);
+            text-transform: uppercase; letter-spacing: 3px;
+        }
+        .uebergabe-btn {
+            background: var(--marmor); color: var(--ink);   /* kontrast-ok: 11,60 auf --marmor */
+            border: 3px solid #24512c; border-radius: 12px;
+            font-family: var(--font-display); font-weight: bold;
+            font-size: clamp(1rem, 3.2vh, 1.4rem);
+            padding: 16px 30px; cursor: pointer; touch-action: manipulation;
+        }
+
+        /* ---------- Knall ---------- */
+
+        .knall {
+            position: fixed; inset: 0; z-index: 450;
+            display: none; flex-direction: column;
+            align-items: center; justify-content: center; gap: 14px;
+            background: #2a2018;
+            color: var(--marmor);              /* kontrast-ok: 12,86 auf #2a2018 */
+            text-align: center; padding: 24px;
+        }
+        .knall-zeichen { font-size: clamp(3.5rem, 18vh, 8rem); line-height: 1; }
+        .knall h2 {
+            font-family: var(--font-display);
+            font-size: clamp(1.8rem, 8vh, 3.4rem);
+            text-transform: uppercase; letter-spacing: 4px;
+        }
+        .knall p { font-size: clamp(0.95rem, 2.6vh, 1.2rem); max-width: 30ch; line-height: 1.5; }
+        .knall-knoepfe { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+        .knall .zahl { font-family: var(--font-display); font-weight: bold; font-size: 1.6em; }
+
+        /* ---------- Startbildschirm ---------- */
+
+        /* Aussehen steht in theme.css - hier nur die Breite des Hinweiskastens. */
+        .start-overlay .notice-box { max-width: 640px; }
+
+        .ton-hinweis {
+            max-width: 640px; margin-top: 14px;
+            padding: 10px 14px; border-radius: 9px;
+            background: var(--wand-tief);
+            border: 2px solid var(--bronze);
+            color: var(--ink);                 /* kontrast-ok: 8,71 auf --wand-tief */
+            font-size: 0.9rem; line-height: 1.45; text-align: left;
+        }
+    </style>
+</head>
+<body>
+<a href="index.html" id="global-menu-btn" title="Zurück zum Hauptmenü">🏠</a>
+
+    <div class="kopf">
+        <!-- Bewusst ohne Fortschritt: siehe den Vermerk bei .lunte-feld im CSS. -->
+        <div class="lunte-feld aus" id="lunte-feld">
+            <div class="bombe"></div>
+            <div class="lunte"></div>
+            <div class="flamme" id="flamme">🔥</div>
+        </div>
+
+        <div class="werkzeuge">
+            <div class="richtung">
+                <button id="btn-lat" class="aktiv">Lat → Dt</button>
+                <button id="btn-de">Dt → Lat</button>
+            </div>
+            <button class="werkzeug-btn" id="btn-ton" title="Ticken an- und ausschalten">🔔 Ton</button>
+            <button class="werkzeug-btn" id="btn-lektionen">Lektionen</button>
+        </div>
+
+        <div class="zaehler-feld">
+            <span class="zaehler-label">Karten</span>
+            <span class="zaehler" id="zaehler">0</span>
+            <!-- "Rekord", nicht "Best": In Versalien steht "BEST" neben einer Zahl
+                 einen Blick von "REST" entfernt - und die Restzeit ist genau das,
+                 was hier niemand sehen soll. -->
+            <span class="zaehler-label">Rekord</span>
+            <span class="zaehler best" id="bestwert">–</span>
+        </div>
+    </div>
+
+    <main class="buehne">
+        <div class="frage-karte">
+            <div class="frage-art" id="frage-art">Was bedeutet</div>
+            <div class="frage-wort" id="frage-wort">…</div>
+            <!-- Zeit fuer DIESE Karte. Darf sichtbar sein: Sie sagt nichts ueber
+                 den Stand der Bombe. Sitzt am Fuss der Karte, nicht oben bei
+                 der Bombe, damit klar bleibt, worauf sie sich bezieht. -->
+            <div class="kartenuhr"><div class="kartenuhr-rest" id="kartenuhr-rest"></div></div>
+        </div>
+        <!-- Warnung nach einem überstandenen Fehlschuss. Steht zwischen Frage
+             und Antworten, damit sie im Blick liegt, ohne die Knöpfe zu
+             verdecken. Sie kostet die Frage-Karte Höhe, nie die Knöpfe. -->
+        <div class="band" id="band"></div>
+        <div class="antworten" id="antworten">
+            <button class="antwort-btn" data-i="0"></button>
+            <button class="antwort-btn" data-i="1"></button>
+            <button class="antwort-btn" data-i="2"></button>
+            <button class="antwort-btn" data-i="3"></button>
+        </div>
+    </main>
+
+    <div class="uebergabe" id="uebergabe">
+        <div class="uebergabe-pfeil">🤲</div>
+        <div class="uebergabe-text">Weitergeben!</div>
+        <button class="uebergabe-btn" id="btn-weiter">Ich habe sie — meine Karte</button>
+    </div>
+
+    <div class="knall" id="knall">
+        <div class="knall-zeichen">💥</div>
+        <h2>Bomba!</h2>
+        <p id="knall-text"></p>
+        <!-- Der Knall verdeckt die Kopfleiste. Ohne diesen zweiten Knopf käme
+             man zwischen zwei Runden nicht mehr an die Lektionsauswahl. -->
+        <div class="knall-knoepfe">
+            <button class="werkzeug-btn gross" id="btn-neu">Neue Bomba</button>
+            <button class="werkzeug-btn" id="btn-lektionen-knall">Andere Lektionen</button>
+        </div>
+    </div>
+
+    <div class="start-overlay" id="start-overlay">
+        <h2>Bomba</h2>
+        <div class="notice-box">
+            <h3>💣 So läuft's</h3>
+            <p>Ein Gerät wandert im Kreis. Wer es hat, bekommt eine Vokabel und vier
+               Antworten. Richtig getippt? <span class="step">Weitergeben.</span></p>
+            <p style="margin-top: 10px;">Falsch getippt ist ein <strong>Fehlschuss</strong>:
+               Die Bomba geht mit einer Wahrscheinlichkeit von eins zu zwei sofort hoch.
+               Überstehst du ihn, musst du dieselbe Karte richtig beantworten — der zweite
+               Fehler zündet sicher. Also lieber kurz überlegen als schnell raten.</p>
+            <p style="margin-top: 10px;">Liegenlassen hilft nicht: Unter der Karte läuft ein
+               Balken ab. Ist er leer, zählt das wie eine falsche Antwort — auch das ist ein
+               Fehlschuss. Die Zeit richtet sich danach, wie viel auf der Karte steht, und
+               reicht zum Lesen und Nachdenken.</p>
+            <p style="margin-top: 10px;">Wer die Bomba in der Hand hält, wenn sie hochgeht,
+               hat verloren. Wie lange die Lunte brennt, ist jede Runde anders, und
+               <strong>sehen kann man es nicht</strong> — es gibt keine Anzeige und keinen
+               Balken. Nur hören: Das Ticken wird schneller, je knapper es wird.</p>
+            <p style="margin-top: 10px;">Oben zählt mit, wie viele Karten die Gruppe bis zum
+               Knall geschafft hat. Das ist die Zahl, die ihr schlagen wollt.</p>
+        </div>
+
+        <!-- Steht hier und nicht im Hinweistext am Knopf, weil genau hier der
+             Moment ist, in dem es zählt: Auf dem iPad gilt der Ton dieses Spiels
+             als Umgebungston und wird vom Lautlos-Schalter abgewürgt, während
+             Videos und Musik weiterlaufen. Schul-iPads stehen fast immer auf
+             lautlos - das kommt also bei jeder Klasse wieder. -->
+        <p class="ton-hinweis">
+            🔇 <strong>Kein Ticken zu hören?</strong> Auf dem iPad ist das fast immer der
+            Lautlos-Schalter im Kontrollzentrum — er schaltet diesen Ton stumm, obwohl
+            Videos und Musik weiter laufen.
+        </p>
+        <button class="start-btn" id="btn-start">Lunte anzünden</button>
+    </div>
+
+<script>
+    /* ============ ZUSTAND ============ */
+    let aktiverPool = [];          // Wörter der gewählten Lektionen
+    let richtung = 'lat';          // 'lat' = Latein gefragt, 'de' = Deutsch gefragt
+    let aktuell = null;            // der Vokabeleintrag der laufenden Karte
+    let richtigeAntwort = '';
+    let schonGewertet = false;     // nur der ERSTE Versuch je Karte zählt
+    let fehlschuss = false;        // wurde auf DIESER Karte schon danebengetippt?
+    let geschafft = 0;             // Karten in dieser Runde
+    let laeuft = false;
+    let wartUhr = null;            // laufender Übergabe-/Fehlschuss-Wartelauf
+
+    /* Der erste Fehler auf einer Karte ist ein Fehlschuss: Die Bombe geht mit
+       dieser Wahrscheinlichkeit sofort hoch. Übersteht man ihn, muss die Karte
+       richtig beantwortet werden - der zweite Fehler zündet sicher.
+
+       Vorher war ein Fehler folgenlos: Man konnte alle vier Felder abklappern
+       und lag am Ende immer richtig, was einen Tipp kostete. Nichtwissen war
+       gratis, und damit war die Frage keine.
+
+       Gezählt wird je KARTE, nicht je Runde. Das Gerät wandert - wer eine
+       Karte bekommt, darf nicht für den Fehler einer anderen Person haften. */
+    const FEHLSCHUSS_RISIKO = 0.5;
+
+    /* ---- Kartenuhr ----
+       Ohne Zeitgrenze lohnt sich Trödeln: Wer das Wort nicht weiss, steht beim
+       Tippen vor 37,5 % Sofortverlust (75 % daneben × 50 % Zündung). Abwarten
+       war dagegen billig, solange die Lunte frisch sein konnte - das Gerät
+       blieb liegen, und die Runde schlief ein.
+
+       Läuft die Zeit ab, zählt das wie eine falsche Antwort: erster Fehler auf
+       der Karte = Fehlschuss mit Münzwurf, zweiter = sicher. Eine Regel, zwei
+       Auslöser.
+
+       Die Zeit ist NICHT knapp bemessen. Sie soll nur das Liegenlassen
+       verhindern, nicht zum Schnellraten drängen - Raten ist hier teuer, und
+       das soll es bleiben. Bemessen wie im Circus: feste Denkzeit plus
+       Lesezeit aus dem, was wirklich auf der Karte steht. Eine typische Karte
+       zeigt 8 Wörter (gemessen), eine lange 16. */
+    const KARTEN_DENKZEIT = 8000;      // ms zum Nachdenken
+    const WOERTER_JE_SEKUNDE = 3;      // stilles Lesen eines Zwölfjährigen
+
+    let kartenRest = 0;
+    let kartenGesamt = 0;
+    let karteLaeuft = false;           // wartet gerade eine Karte auf eine Antwort?
+
+    /* ---- Lunte ---- */
+    let luntenDauer = 0;           // ms, je Runde gewürfelt
+    let luntenRest = 0;
+    let luntenUhr = null;
+    let letzterTick = 0;
+
+    /* Die Spanne ist bewusst breit. Eine feste Dauer hätte die Gruppe nach drei
+       Runden heraus; bei 40 bis 85 Sekunden bleibt offen, ob man es noch einmal
+       herumschafft. */
+    const LUNTE_MIN = 40000;
+    const LUNTE_MAX = 85000;
+
+    const SPEICHER_BEST = 'ludi_bomba_best';
+
+    /* ============ TON ============ */
+
+    /* Ticken über die WebAudio-Schnittstelle statt über eine Tondatei: Das
+       Projekt hat keine Audio-Assets, und eine Datei wäre für ein Klicken
+       reichlich Ballast. Alles hier ist Beiwerk - wenn der Browser nicht
+       mitspielt, wird still gespielt, aber gespielt. */
+    let tonAn = true;
+    let klang = null;
+
+    function tonKontext() {
+        if (klang !== null) return klang;
+        try {
+            const K = window.AudioContext || window.webkitAudioContext;
+            klang = K ? new K() : false;
+        } catch (e) { klang = false; }
+        return klang;
+    }
+
+    /* Auf iOS reicht es NICHT, den AudioContext in der Berührung anzulegen -
+       es muss darin auch etwas abgespielt werden, und sei es ein Puffer aus
+       einem einzigen stummen Abtastwert. Vorher stand hier nur ein Aufruf von
+       tonKontext(), und auf dem iPad blieb es still.
+
+       Was das NICHT löst: Safari behandelt WebAudio als Umgebungston. Steht das
+       Gerät im Kontrollzentrum auf lautlos, bleibt es stumm, obwohl der Kontext
+       sauber läuft - von hier aus ist das nicht zu erkennen und nicht zu
+       umgehen. Deshalb der Hinweistext am Knopf. */
+    function tonFreischalten() {
+        const ctx = tonKontext();
+        if (!ctx) { zeigeTonZustand(); return; }
+        try {
+            if (ctx.state !== 'running') ctx.resume();
+            const quelle = ctx.createBufferSource();
+            quelle.buffer = ctx.createBuffer(1, 1, 22050);
+            quelle.connect(ctx.destination);
+            quelle.start(0);
+        } catch (e) { /* Ton ist Beiwerk */ }
+        setTimeout(zeigeTonZustand, 250);
+    }
+
+    function zeigeTonZustand() {
+        const knopf = document.getElementById('btn-ton');
+        if (!knopf) return;
+        if (!tonAn) {
+            knopf.textContent = '🔕 Ton';
+            knopf.title = 'Ticken einschalten';
+        } else if (klang === false) {
+            knopf.textContent = '🔕 kein Ton';
+            knopf.title = 'Dieser Browser kann keinen Ton erzeugen.';
+        } else if (klang && klang.state !== 'running') {
+            knopf.textContent = '🔇 Ton stumm';
+            knopf.title = 'Der Browser gibt gerade keinen Ton aus. Einmal auf den Knopf tippen hilft oft.';
+        } else {
+            knopf.textContent = '🔔 Ton';
+            knopf.title = 'Ticken ausschalten. Kein Ton trotz 🔔? Auf dem iPad ist das fast immer der Lautlos-Schalter im Kontrollzentrum - WebAudio gilt dort als Umgebungston.';
+        }
+    }
+
+    /* Lautstärken: Der Tick lag zuerst bei 35 ms und 5 % - auf iPad-Lautsprechern
+       in einem vollen Klassenzimmer praktisch nicht zu hören. Dazu ein kurzer
+       Anstieg über 6 ms statt eines harten Einsatzes; das klingt sauberer und
+       wirkt bei gleichem Pegel lauter. */
+    function piep(frequenz, dauer, lautstaerke) {
+        if (!tonAn) return;
+        const ctx = tonKontext();
+        if (!ctx) return;
+        try {
+            if (ctx.state !== 'running') ctx.resume();
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            const t = ctx.currentTime;
+            o.type = 'square';
+            o.frequency.setValueAtTime(frequenz, t);
+            g.gain.setValueAtTime(0.0001, t);
+            g.gain.exponentialRampToValueAtTime(lautstaerke, t + 0.006);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + dauer);
+            o.connect(g); g.connect(ctx.destination);
+            o.start();
+            o.stop(t + dauer + 0.02);
+        } catch (e) { /* Ton ist Beiwerk, nie das Spiel daran scheitern lassen */ }
+    }
+
+    function knallTon() {
+        if (!tonAn) return;
+        const ctx = tonKontext();
+        if (!ctx) return;
+        try {
+            if (ctx.state === 'suspended') ctx.resume();
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.type = 'sawtooth';
+            o.frequency.setValueAtTime(220, ctx.currentTime);
+            o.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.5);
+            g.gain.setValueAtTime(0.18, ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
+            o.connect(g); g.connect(ctx.destination);
+            o.start();
+            o.stop(ctx.currentTime + 0.62);
+        } catch (e) { /* siehe oben */ }
+    }
+
+    /* Der überstandene Fehlschuss: ein trockenes Doppelklicken wie bei einer
+       Waffe, die nicht losgeht. Bewusst kein Belohnungston - überstanden ist
+       nicht geschafft. */
+    function klick() {
+        piep(110, 0.07, 0.2);
+        setTimeout(function () { piep(85, 0.08, 0.17); }, 110);
+    }
+
+    /* Einschalten gibt gleich eine Hörprobe: Sonst merkt man erst mitten in der
+       Runde, dass nichts kommt - und weiß dann nicht, ob es am Gerät liegt. */
+    function setzeTon(an) {
+        tonAn = an;
+        zeigeTonZustand();
+        if (an) { tonFreischalten(); setTimeout(function () { piep(660, 0.09, 0.16); }, 60); }
+    }
+
+    /* ============ BESTLEISTUNG ============ */
+
+    /* Eigener Schlüssel statt LudiProgress.saveGameResult: Das ist keine
+       persönliche Leistung, sondern die einer Gruppe an einem geteilten Gerät.
+       Im Fortschrittsband des Hauptmenüs hätte sie nichts zu suchen. */
+    function holeBest() {
+        try {
+            const w = parseInt(localStorage.getItem(SPEICHER_BEST), 10);
+            return isNaN(w) ? 0 : w;
+        } catch (e) { return 0; }
+    }
+    function setzeBest(wert) {
+        try { localStorage.setItem(SPEICHER_BEST, String(wert)); } catch (e) { /* privater Tab */ }
+    }
+    function zeigeBest() {
+        const b = holeBest();
+        document.getElementById('bestwert').textContent = b > 0 ? b : '–';
+    }
+
+    /* ============ FRAGE BAUEN ============ */
+
+    /* Die gefragte und die zu tippende Seite. In der Richtung 'lat' steht das
+       lateinische Wort oben und die Bedeutungen unten, in 'de' umgekehrt. */
+    function gefragteSeite(e) { return richtung === 'lat' ? e.latin : e.meaning; }
+    function loesungsSeite(e) { return richtung === 'lat' ? e.meaning : e.latin; }
+
+    function wortart(type) {
+        const namen = {
+            noun: 'Substantiv', verb: 'Verb', adjective: 'Adjektiv',
+            adverb: 'Adverb', preposition: 'Präposition', pronoun: 'Pronomen',
+            conjunction: 'Konjunktion', other: 'Partikel'
+        };
+        return namen[type] || type;
+    }
+
+    function naechsteKarte() {
+        if (!laeuft) return;
+
+        // Der Vokabelkasten steuert die Auswahl wie in den anderen Spielen:
+        // Wörter, die noch nicht sitzen, kommen häufiger dran.
+        aktuell = (typeof LudiProgress !== 'undefined' && LudiProgress.weightedPick)
+            ? LudiProgress.weightedPick(aktiverPool)
+            : null;
+        if (!aktuell) aktuell = aktiverPool[Math.floor(Math.random() * aktiverPool.length)];
+
+        richtigeAntwort = loesungsSeite(aktuell);
+        schonGewertet = false;
+        fehlschuss = false;         // jede Karte fängt mit einem freien Schuss an
+        clearTimeout(wartUhr);
+        versteckeBand();
+
+        document.getElementById('frage-art').textContent =
+            (richtung === 'lat' ? 'Was bedeutet' : 'Wie heißt auf Latein') +
+            ' — ' + wortart(aktuell.type);
+        document.getElementById('frage-wort').textContent = gefragteSeite(aktuell);
+
+        // Ablenker: erst aus derselben Wortart (das macht die Wahl zu einer
+        // echten Bedeutungsfrage statt zu einer Formfrage), dann aufgefüllt.
+        let falsche = aktiverPool
+            .filter(i => i.type === aktuell.type && loesungsSeite(i) !== richtigeAntwort)
+            .map(loesungsSeite);
+        falsche = [...new Set(falsche)].sort(() => Math.random() - 0.5).slice(0, 3);
+        let schutz = 0;
+        while (falsche.length < 3 && schutz++ < 400) {
+            const e = aktiverPool[Math.floor(Math.random() * aktiverPool.length)];
+            const w = loesungsSeite(e);
+            if (w !== richtigeAntwort && !falsche.includes(w)) falsche.push(w);
+        }
+
+        const alle = [richtigeAntwort, ...falsche].sort(() => Math.random() - 0.5);
+        document.querySelectorAll('.antwort-btn').forEach((btn, i) => {
+            btn.textContent = alle[i] !== undefined ? alle[i] : '—';
+            btn.className = 'antwort-btn';
+            btn.disabled = alle[i] === undefined;
+        });
+
+        // Erst jetzt, denn die Zeit haengt an dem, was wirklich auf der Karte steht.
+        starteKartenUhr();
+    }
+
+    /* ============ ANTWORT ============ */
+
+    /* Nur der ERSTE Versuch je Karte geht in den Vokabelkasten. Wer beim
+       zweiten Tippen trifft, hat das Wort nicht gewusst - dieselbe Überlegung
+       wie bei der geplanten Wiederholungsrunde. */
+    function werte(stimmt) {
+        if (schonGewertet) return;
+        schonGewertet = true;
+        if (typeof LudiProgress === 'undefined') return;
+        LudiProgress.recordVocabAttempt(aktuell.latin, stimmt);
+        const kategorie = { noun: 'Substantiv', verb: 'Verb', adjective: 'Adjektiv' }[aktuell.type];
+        if (kategorie) {
+            const neu = LudiProgress.recordCategoryAttempt(kategorie, stimmt);
+            if (neu && typeof AchievementToast !== 'undefined') AchievementToast.show(neu);
+        }
+    }
+
+    /* Die Folge eines Fehlers - egal ob danebengetippt oder die Zeit verstrichen.
+       Beides läuft durch dieselbe Regel, sonst gäbe es zwei Spiele in einem. */
+    function fehlerBehandeln(ersterGrund) {
+        // Zweiter Fehler auf derselben Karte: Schluss.
+        if (fehlschuss) { explodiere('zweiter'); return; }
+
+        fehlschuss = true;
+        if (Math.random() < FEHLSCHUSS_RISIKO) { explodiere(ersterGrund); return; }
+
+        // Überstanden - aber jetzt muss die Karte sitzen. Die Kartenuhr fängt
+        // von vorn an: Der Münzwurf war Strafe genug, und mit dem Rest der
+        // alten Zeit wäre der zweite Anlauf oft gar nicht zu schaffen.
+        klick();
+        zeigeBand(ersterGrund === 'zeit'
+            ? 'Zeit um — Fehlschuss! Sie hat nicht gezündet. Der nächste Fehler ist der letzte.'
+            : 'Fehlschuss! Sie hat nicht gezündet — der nächste Fehler ist der letzte.');
+        document.querySelectorAll('.antwort-btn').forEach(b => {
+            if (!b.classList.contains('falsch')) b.disabled = false;
+        });
+        starteKartenUhr();
+    }
+
+    function antworte(btn) {
+        if (!laeuft || btn.disabled) return;
+        const stimmt = btn.textContent === richtigeAntwort;
+        werte(stimmt);
+
+        if (!stimmt) {
+            btn.classList.add('falsch');
+            btn.disabled = true;
+            stoppeKartenUhr();
+            fehlerBehandeln('fehlschuss');
+            return;
+        }
+
+        btn.classList.add('richtig');
+        document.querySelectorAll('.antwort-btn').forEach(b => { b.disabled = true; });
+        stoppeKartenUhr();
+        versteckeBand();
+        piep(880, 0.1, 0.13);
+        geschafft++;
+        document.getElementById('zaehler').textContent = geschafft;
+        clearTimeout(wartUhr);
+        wartUhr = setTimeout(zeigeUebergabe, 480);
+    }
+
+    /* ============ KARTENUHR ============ */
+
+    function kartenzeitMs() {
+        const felder = [...document.querySelectorAll('.antwort-btn')].map(b => b.textContent || '');
+        felder.push(document.getElementById('frage-wort').textContent || '');
+        const woerter = felder.join(' ').split(/[\s,;]+/).filter(Boolean).length;
+        return KARTEN_DENKZEIT + (woerter / WOERTER_JE_SEKUNDE) * 1000;
+    }
+
+    function starteKartenUhr() {
+        kartenGesamt = kartenzeitMs();
+        kartenRest = kartenGesamt;
+        karteLaeuft = true;
+        zeichneKartenUhr();
+    }
+
+    function stoppeKartenUhr() {
+        karteLaeuft = false;
+        zeichneKartenUhr();
+    }
+
+    /* Anders als die Lunte DARF diese Uhr zu sehen sein: Sie sagt nichts über
+       den Stand der Bombe, nur über die eigene Karte. Unsichtbar wäre sie eine
+       Falle statt einer Regel. Sie sitzt deshalb am Fuss der Frage-Karte, nicht
+       oben bei der Bombe - damit klar bleibt, worauf sie sich bezieht. */
+    function zeichneKartenUhr() {
+        const balken = document.getElementById('kartenuhr-rest');
+        if (!balken) return;
+        const anteil = karteLaeuft && kartenGesamt > 0 ? Math.max(0, kartenRest / kartenGesamt) : 0;
+        balken.style.width = (anteil * 100).toFixed(1) + '%';
+        balken.classList.toggle('knapp', karteLaeuft && anteil < 0.34);
+    }
+
+    function zeitAbgelaufen() {
+        stoppeKartenUhr();
+        // Keine Antwort ist eine falsche Antwort - wer nichts tippt, weiss es nicht.
+        werte(false);
+        document.querySelectorAll('.antwort-btn').forEach(b => { b.disabled = true; });
+        fehlerBehandeln('zeit');
+    }
+
+    function zeigeBand(text) {
+        const band = document.getElementById('band');
+        band.textContent = text;
+        band.style.display = 'block';
+    }
+    function versteckeBand() {
+        document.getElementById('band').style.display = 'none';
+    }
+
+    function zeigeUebergabe() {
+        if (!laeuft) return;
+        document.getElementById('uebergabe').style.display = 'flex';
+    }
+
+    function uebernehmen() {
+        document.getElementById('uebergabe').style.display = 'none';
+        naechsteKarte();
+    }
+
+    /* ============ LUNTE ============ */
+
+    function starteLunte() {
+        luntenDauer = LUNTE_MIN + Math.random() * (LUNTE_MAX - LUNTE_MIN);
+        luntenRest = luntenDauer;
+        letzterTick = 0;
+        document.getElementById('lunte-feld').classList.remove('aus');
+        clearInterval(luntenUhr);
+        luntenUhr = setInterval(luntenSchritt, 50);
+    }
+
+    /* Hier wird bewusst NICHTS gezeichnet. luntenRest darf den Bildschirm
+       nicht erreichen - weder als Balken noch als Zahl noch als Farbe. Sobald
+       der Rest irgendwo sichtbar wird, kann die Gruppe das Ende abpassen, und
+       das Spiel verliert seinen einzigen Reiz.
+       Zu hören ist er: Das Ticken wird schneller, je kürzer die Lunte. Das
+       bleibt ungefähr, weil die Gesamtdauer je Runde gewürfelt wird - schnelles
+       Ticken heisst „bald", nicht „in acht Sekunden". */
+    function luntenSchritt() {
+        luntenRest -= 50;
+        if (luntenRest <= 0) { explodiere('lunte'); return; }
+
+        // Die Kartenuhr laeuft im selben Takt mit. Sie steht still, sobald die
+        // Karte beantwortet ist - sonst fraeße die Uebergabe die Zeit der
+        // naechsten Person.
+        if (karteLaeuft) {
+            kartenRest -= 50;
+            if (kartenRest <= 0) { zeitAbgelaufen(); return; }
+            zeichneKartenUhr();
+        }
+
+        const anteil = luntenRest / luntenDauer;
+        const abstand = 130 + anteil * 720;
+        letzterTick += 50;
+        if (letzterTick >= abstand) {
+            letzterTick = 0;
+            piep(anteil < 0.2 ? 1000 : 660, 0.07, anteil < 0.2 ? 0.18 : 0.14);
+        }
+    }
+
+    /* Warum es geknallt hat, gehört auf den Schlussbildschirm: Eine abgebrannte
+       Lunte ist Pech, ein Fehlschuss war eine Antwort. Beim Fehlschuss steht
+       die richtige Lösung dabei - sonst geht das Wort in der Aufregung unter,
+       und genau das wäre schade. */
+    const KNALL_GRUND = {
+        lunte:       'Die Lunte war abgebrannt.',
+        fehlschuss:  'Ein Fehlschuss hat sie gezündet.',
+        zeit:        'Die Zeit für die Karte war um — Fehlschuss.',
+        zweiter:     'Zweiter Fehler auf derselben Karte.'
+    };
+
+    function explodiere(grund) {
+        clearInterval(luntenUhr);
+        clearTimeout(wartUhr);
+        laeuft = false;
+        stoppeKartenUhr();
+        document.getElementById('lunte-feld').classList.add('aus');
+        document.getElementById('uebergabe').style.display = 'none';
+        versteckeBand();
+        knallTon();
+
+        const best = holeBest();
+        const neuerRekord = geschafft > best;
+        if (neuerRekord) setzeBest(geschafft);
+        zeigeBest();
+
+        let text = KNALL_GRUND[grund] || KNALL_GRUND.lunte;
+        if (grund === 'fehlschuss' || grund === 'zweiter' || grund === 'zeit') {
+            text += '<br>Richtig war: <strong>' + richtigeAntwort + '</strong>';
+        }
+        text += '<br><br><span class="zahl">' + geschafft + '</span><br>' +
+            (neuerRekord ? 'Karten — neuer Rekord!' : 'Karten geschafft. Rekord: ' + (best > 0 ? best : geschafft) + '.');
+
+        document.getElementById('knall-text').innerHTML = text;
+        document.getElementById('knall').style.display = 'flex';
+    }
+
+    /* ============ RUNDE ============ */
+
+    function neueRunde() {
+        clearTimeout(wartUhr);      // ein Wartelauf der alten Runde darf nicht nachklappern
+        document.getElementById('knall').style.display = 'none';
+        document.getElementById('uebergabe').style.display = 'none';
+        versteckeBand();
+        geschafft = 0;
+        document.getElementById('zaehler').textContent = '0';
+        laeuft = true;
+        starteLunte();
+        naechsteKarte();
+    }
+
+    function setzeRichtung(neu) {
+        if (richtung === neu) return;
+        richtung = neu;
+        document.getElementById('btn-lat').classList.toggle('aktiv', neu === 'lat');
+        document.getElementById('btn-de').classList.toggle('aktiv', neu === 'de');
+        if (laeuft) naechsteKarte();
+    }
+
+    function lektionenWaehlen(danach) {
+        if (typeof globalVocabularyPool === 'undefined' || !globalVocabularyPool.length) {
+            alert('Kritischer Fehler: vocabulary.js konnte nicht geladen werden.');
+            return;
+        }
+        LessonFilter.show(globalVocabularyPool, function (gefiltert) {
+            aktiverPool = gefiltert.filter(v => v.meaning && v.latin);
+            // Vier Antwortfelder brauchen vier unterscheidbare Wörter, und mit
+            // genau vieren stünde jede Runde dieselbe Auswahl da.
+            if (aktiverPool.length < 8) {
+                alert('Für diese Lektionsauswahl gibt es zu wenig Wortschatz. Bitte mehr Lektionen wählen.');
+                return;
+            }
+            danach();
+        });
+    }
+
+    window.onload = function () {
+        document.getElementById('btn-lat').addEventListener('click', () => setzeRichtung('lat'));
+        document.getElementById('btn-de').addEventListener('click', () => setzeRichtung('de'));
+        document.getElementById('btn-ton').addEventListener('click', () => setzeTon(!tonAn));
+        document.getElementById('btn-weiter').addEventListener('click', uebernehmen);
+        document.getElementById('btn-neu').addEventListener('click', neueRunde);
+        document.getElementById('btn-lektionen-knall').addEventListener('click', function () {
+            lektionenWaehlen(neueRunde);
+        });
+        document.getElementById('btn-lektionen').addEventListener('click', function () {
+            lektionenWaehlen(neueRunde);
+        });
+
+        document.querySelectorAll('.antwort-btn').forEach(btn => {
+            btn.addEventListener('click', function () { antworte(btn); });
+        });
+
+        document.getElementById('btn-start').addEventListener('click', function () {
+            lektionenWaehlen(function () {
+                document.getElementById('start-overlay').style.display = 'none';
+                // Der erste Ton muss aus einer Berührung kommen, sonst lässt
+                // der Browser die Tonausgabe gar nicht erst zu.
+                tonFreischalten();
+                neueRunde();
+            });
+        });
+
+        zeigeBest();
+    };
+</script>
+</body>
+</html>

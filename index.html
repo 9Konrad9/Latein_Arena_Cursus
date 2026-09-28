@@ -331,6 +331,33 @@
                 <a href="Duell.html" class="play-btn">Duell starten</a>
             </div>
 
+            <!-- Kein Einzelspiel: läuft am Beamer, gespielt wird im Klassenraum
+                 mit echten Fliegenklatschen. Deshalb auch kein Fortschrittsband. -->
+            <div class="game-card" data-game="fliegenklatsche">
+                <div class="game-icon">🪰</div>
+                <div class="game-title">Fliegenklatsche</div>
+                <div class="game-focus">Schwerpunkt: Klasse gegen Klasse, am Beamer</div>
+                <div class="game-desc">
+                    Wörter verteilt auf dem Brett, zwei Teams mit Fliegenklatschen: Wer zuerst
+                    auf das zugerufene Wort schlägt, bekommt den Punkt. Wahlweise Latein oder
+                    Deutsch auf dem Brett.
+                </div>
+                <a href="Fliegenklatsche.html" class="play-btn">Brett aufbauen</a>
+            </div>
+
+            <!-- Ein Gerät, das herumgereicht wird: Die Leistung gehört der
+                 Gruppe, nicht der Person am iPad. Deshalb kein Fortschrittsband. -->
+            <div class="game-card" data-game="bomba">
+                <div class="game-icon">💣</div>
+                <div class="game-title">Bomba</div>
+                <div class="game-focus">Schwerpunkt: Gruppe an einem Gerät</div>
+                <div class="game-desc">
+                    Karte beantworten, Gerät weitergeben. Wer die Bomba hält, wenn die Lunte
+                    abgebrannt ist, hat verloren - und niemand weiß, wann das ist.
+                </div>
+                <a href="Bomba.html" class="play-btn">Lunte anzünden</a>
+            </div>
+
         </div>
     </section>
 
@@ -523,6 +550,12 @@
         document.querySelectorAll('.game-card[data-game]').forEach(card => {
             const gameId = card.getAttribute('data-game');
             const badge = card.querySelector('.progress-badge');
+
+            // Gruppenspiele (Bomba, Fliegenklatsche) tragen bewusst KEIN Fortschrittsband:
+            // Die Leistung gehört der Gruppe, nicht dem Gerät. Ohne diese Zeile wirft die
+            // Schleife an der ersten solchen Karte - und alle Karten DAHINTER bleiben ohne
+            // Fortschrittszeile stehen, ohne dass etwas sichtbar kaputt aussieht.
+            if (!badge) return;
 
             if (NICHT_FREIGEGEBEN.indexOf(gameId) !== -1) {
                 card.classList.add('gesperrt');
