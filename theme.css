@@ -94,73 +94,482 @@ body {
 }
 #global-menu-btn:hover { background: var(--putz-hell); border-color: var(--pompeji); }
 
+/* ---------- Der Silentium-Knopf ----------
+   Das Gegenstueck zum Haus-Knopf, oben RECHTS und nur auf dem Hauptmenue.
+   Silentium ist kein Spiel, sondern ein Werkzeug fuer die Lehrkraft - es steht
+   deshalb nicht als Karte zwischen den Spielen, sondern am Rand. Dieselbe
+   Gestalt wie der Haus-Knopf, nur als Pille mit Wort: Ein Kreis mit Zeichen
+   allein waere hier zu raetselhaft.
+   Auf schmalen Schirmen faellt das Wort weg und der Knopf wird rund - sonst
+   draengt er sich in die Kopfzeile. */
+#silentium-btn {
+    position: fixed; top: 10px; right: 10px; z-index: 100000;
+    height: 42px; padding: 0 16px; border-radius: 21px;
+    background: var(--putz);
+    border: 2px solid var(--bronze);
+    color: var(--pompeji);                 /* kontrast-ok: 6,40 auf --putz, 6,99 im Hover auf --putz-hell */
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--font-display); font-weight: bold; font-size: 0.95rem;
+    text-decoration: none; letter-spacing: 1px;
+    box-shadow: var(--schatten);
+    touch-action: manipulation;
+}
+#silentium-btn:hover { background: var(--putz-hell); border-color: var(--pompeji); }
+#silentium-btn .zeichen { font-size: 1.2rem; }
+
+@media (max-width: 720px) {
+    #silentium-btn { width: 42px; padding: 0; justify-content: center; border-radius: 50%; }
+    #silentium-btn .wort { display: none; }
+}
+
 /* ---------- Überschriften ---------- */
+
+/* Die Kopfzeile eines Spiels: Name und Untertitel über der Spielfläche.
+
+   Die zwei Klassen gab es hier schon - und KEINE einzige Datei hat sie
+   benutzt. Stattdessen trug jedes Spiel eine eigene h1-Regel, sechs davon
+   Zeichen für Zeichen gleich (Arcus, Kastell, Pendel, Principia, Pronomina,
+   Villa), der Circus dieselbe ohne Schatten, Issa dieselbe kleiner, und die
+   Via Rōmāna schrieb ihre zweimal als style-Attribut ins Markup. Tote
+   Regeln in theme.css sind schlimmer als gar keine: Sie sehen aus, als
+   wäre die Sache geregelt.
+
+   Absichtlich als KLASSE, nicht als h1: Das Hauptmenü setzt seinen Titel
+   in Marmorcreme auf die Bronzetafel, die Trophäenseite ohne Versalien.
+   Eine h1-Regel hier würde beiden dazwischenfunken - und pruefe-theme.js
+   müsste eine Ausnahme dafür bekommen, statt sauber zu melden.
+
+   Genommen sind die Werte der Mehrheit: 1,8 rem, 2 px Sperrung (nicht 3,
+   wie es hier ungenutzt stand). */
 
 .seiten-titel {
     color: var(--pompeji);
     font-family: var(--font-display);
     text-transform: uppercase;
-    letter-spacing: 3px;
+    font-size: 1.8rem;
+    letter-spacing: 2px;
+    margin-bottom: 5px;
     text-align: center;
+    text-shadow: 2px 2px 4px rgba(80, 60, 30, 0.22);
 }
 
 .seiten-untertitel {
+    font-family: var(--font-display);
     color: var(--ink-soft);
     font-style: italic;
+    margin-bottom: 15px;
     text-align: center;
 }
 
 /* ---------- Knöpfe ----------
+
+   EIN Handlungsknopf, in drei Größen.
+
+   Bis September 2026 gab es ihn ACHTMAL unter verschiedenen Namen: .start-btn
+   hier, .play-btn nur in index.html, .nav-btn nur in CircusV.html, .end-btn nur
+   in Duell, .main-btn nur in Villa, .werkzeug-btn wortgleich zweimal (Bomba,
+   Fliegenklatsche), .btn-close und .btn-main in ViaRomana. Geteilt war davon
+   nur die Porphyr-Textur, und auch die nur bei dreien - Farbe, Rand, Radius und
+   Polsterung standen je Datei erneut da, mit den Radien 6, 8, 20, 25 und 30 px
+   nebeneinander, zweimal ganz ohne Rand und in Villa noch mit dem goldenen
+   Schein des alten Themes. Wer in einem neuen Spiel class="nav-btn" schrieb,
+   bekam die Textur und sonst nichts: kein Rot, keinen Rand, keine Polsterung.
+
+   Die Namen bleiben, damit die Spiele nicht alle angefasst werden müssen -
+   was sie bedeuten, ist jetzt aber nur noch die Größe:
+     Pille (30 px)   .start-btn .nav-btn .btn-main .btn-close .end-btn
+                     .main-btn - der Knopf, der für sich steht: Runde
+                     starten, weiter, zurück.
+     Leiste (8 px)   .play-btn .werkzeug-btn - der Knopf in einer Reihe oder
+                     am Fuß einer Karte, wo eine Pille fremd aussähe.
+
+   Ein neues Spiel nimmt .start-btn und .zweitrangig. Die übrigen Namen sind
+   Altlast, kein Angebot.
 
    Die roten Handlungsflächen tragen Porphyr - den purpurroten Stein aus
    Ägypten, der in Rom den Kaisern vorbehalten war. Die Kachel liegt bei
    260 px, also etwa eine Kachel je Knopf; so wiederholt sich innerhalb
    eines Knopfes nichts sichtbar.
 
+   Zwei Abweichungen sind gewollt. Sie stehen als Zusatzklasse hier, nicht
+   mehr als style-Attribut in den Spielen:
+     .zweitrangig - der stille Knopf daneben ("Zurück zum Menü"). Stand in
+                    sieben Spielen als style-Attribut und in IssaJump als
+                    eigene Klasse .small-btn.
+     .wiederholen - "Fehler wiederholen" am Rundenende. Stand in vier Spielen
+                    als Inline-Stil, in Arcus gar nicht.
+
    WICHTIG: Wer diese Flächen in einer Spieldatei überschreibt, muss
    `background-color:` schreiben, nicht die Kurzschreibweise `background:`
-   - die würde das Bild hier wieder entfernen.
+   - die würde das Bild hier wieder entfernen. Maße (Größe, Abstände) darf
+   ein Spiel anpassen, Farbe und Rand nicht; `pruefe-theme.js` meldet das.
 
    Marmorcreme auf dem Porphyr kommt auf 6,7; die frühere flache Farbe
    lag bei 6,0. */
 
 .start-btn,
 .play-btn,
-.nav-btn:not(.zweitrangig) {
+.nav-btn,
+.werkzeug-btn,
+.btn-close,
+.btn-main,
+.end-btn,
+.main-btn {
+    background-color: var(--pompeji);
     background-image: url('assets/ui/porphyr.jpg');
     background-size: 260px auto;
     background-position: center;
-}
-
-.start-btn {
-    background-color: var(--pompeji);
     color: var(--marmor);
-    font-family: var(--font-display);
-    font-weight: bold;
-    padding: 15px 40px;
     border: 2px solid #6d1f1f;
     border-radius: 30px;
+    font-family: var(--font-display);
+    font-weight: bold;
     font-size: 1.2rem;
-    cursor: pointer;
+    padding: 15px 40px;
+    display: inline-block;
+    text-align: center;
     text-transform: uppercase;
     text-decoration: none;
+    cursor: pointer;
     box-shadow: var(--schatten);
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
 }
+
+/* Größen - nur Maße, keine Farbe. */
+.btn-close { padding: 12px 35px; font-size: 1.1rem; }
+.play-btn,
+.werkzeug-btn { padding: 9px 18px; font-size: 0.95rem; border-radius: 8px; }
+.werkzeug-btn.gross { padding: 14px 28px; font-size: 1.15rem; }
+
+/* Der stille Knopf. Steht zuletzt, damit er die Größen oben schlägt -
+   gleiche Spezifität, spätere Regel gewinnt. */
+.zweitrangig {
+    background-color: var(--wand);
+    background-image: none;
+    color: var(--ink);
+    border-color: var(--bronze);
+    font-size: 0.9rem;
+    padding: 8px 20px;
+    box-shadow: none;
+}
+/* kontrast-ok: 6,34 - Weiß auf --falsch (#b03030), gemessen. */
+.wiederholen {
+    background-color: var(--falsch);
+    background-image: none;
+    border-color: #7d2020;
+    color: #fff;
+    font-size: 1.1rem;
+    padding: 10px 25px;
+}
+
 /* Aufhellen statt Farbwechsel: Unter der Porphyr-Textur wäre eine andere
    Hintergrundfarbe unsichtbar, und die Kurzschreibweise `background:` würde
    das Bild sogar entfernen. */
-.start-btn:not(:disabled):hover,
-.play-btn:hover,
-.nav-btn:not(.zweitrangig):hover { filter: brightness(1.14); }
-.start-btn:not(:disabled):active { transform: translateY(2px); }
+.start-btn:not(.zweitrangig):not(:disabled):hover,
+.play-btn:not(.zweitrangig):not(:disabled):hover,
+.nav-btn:not(.zweitrangig):not(:disabled):hover,
+.werkzeug-btn:not(.zweitrangig):not(:disabled):hover,
+.btn-close:not(.zweitrangig):not(:disabled):hover,
+.btn-main:not(.zweitrangig):not(:disabled):hover,
+.end-btn:not(.zweitrangig):not(:disabled):hover,
+.main-btn:not(.zweitrangig):not(:disabled):hover { filter: brightness(1.14); }
+.zweitrangig:hover { background-color: var(--wand-tief); }
+
+.start-btn:not(:disabled):active,
+.play-btn:active,
+.nav-btn:active,
+.werkzeug-btn:active,
+.btn-close:active,
+.btn-main:active,
+.end-btn:active,
+.main-btn:active { transform: translateY(2px); }
+
+/* ---------- Antwortknöpfe ----------
+
+   Der zweite Knopf im Projekt, und der mit der anderen Aufgabe: Hier wird
+   nicht gehandelt, sondern geantwortet. Deshalb hell - vier rote Flächen
+   nebeneinander erschlügen die Frage darüber, und gelesen werden muss die
+   Antwort, nicht der Knopf.
+
+   Auch ihn gab es achtmal: .race-btn (CircusV), .build-btn (Villa),
+   .antwort-btn (Bomba), .btn-opt (Quiz), .arena-btn (Duell) und
+   .btn-syntax (ViaRomana) hell - mit Rändern von 1 und 2 px, Radien von
+   6, 8 und 10 px und vier verschiedenen Flächen -, dazu .shield-btn
+   (Kastell) und .opt-btn (Pronomina) dunkelrot mit Goldrand, der letzte
+   Rest des alten Dunkel-Themes. Die zwei waren die einzigen Stellen im
+   Projekt, an denen noch ein anderes Rot stand als der Porphyr - und
+   ausgerechnet da, wo gar nicht gehandelt wird.
+
+   NICHT dabei ist Principias .coin-btn: Die Antwortmünze ist ein Bild-Asset
+   mit rundem Prägefeld, kein Kasten.
+
+   Gemessen: Tinte auf --putz-hell 13,34 - der beste Lesegrund im Projekt.
+   Weiß auf --richtig 6,39, auf --falsch 6,34. */
+
+.race-btn,
+.build-btn,
+.antwort-btn,
+.shield-btn,
+.btn-opt,
+.opt-btn ,
+.arena-btn,
+.btn-syntax {
+    background-color: var(--putz-hell);
+    border: 2px solid var(--bronze);
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-weight: bold;
+    font-size: 1.1rem;
+    padding: 16px 8px;
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: 0 3px 8px rgba(80, 60, 30, 0.12);
+    transition: background-color 0.1s, border-color 0.1s;
+    overflow-wrap: break-word;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.race-btn:not(:disabled):hover,
+.build-btn:not(:disabled):hover,
+.antwort-btn:not(:disabled):hover,
+.shield-btn:not(:disabled):hover,
+.btn-opt:not(:disabled):hover,
+.opt-btn:not(:disabled):hover ,
+.arena-btn:not(:disabled):hover,
+.btn-syntax:not(:disabled):hover { background-color: #fff; border-color: var(--pompeji); }
+
+.race-btn:not(:disabled):active,
+.build-btn:not(:disabled):active,
+.antwort-btn:not(:disabled):active,
+.shield-btn:not(:disabled):active,
+.btn-opt:not(:disabled):active,
+.opt-btn:not(:disabled):active ,
+.arena-btn:not(:disabled):active,
+.btn-syntax:not(:disabled):active { background-color: var(--wand); }
+
+.race-btn:disabled,
+.build-btn:disabled,
+.antwort-btn:disabled,
+.shield-btn:disabled,
+.btn-opt:disabled,
+.opt-btn:disabled ,
+.arena-btn:disabled,
+.btn-syntax:disabled { cursor: default; }
+
+/* Richtig und falsch. Stand in fünf Spielen fast wortgleich, jeweils mit
+   !important, weil die eigene Knopfregel in derselben Datei danach kam.
+   Hier steht sie danach, das reicht - und !important entfällt.
+   Bomba benennt dieselben zwei Zustände deutsch; beide Namen gelten.
+
+   BEWUSST an die Knopfklassen gebunden, nicht als blankes .correct/.wrong:
+   Arcus hängt dieselben zwei Namen an seine Bronzetafeln (dort wechselt das
+   Bild) und Principia an seine Antwortmünzen (dort kommt ein Ring um den
+   Rand). Eine pauschale Regel würde beiden die Fläche übermalen.
+
+   Der weiße Rand von früher ist weg: Auf hellem Grund umrandet er die
+   Fläche nicht, er frisst sie an. Stattdessen je eine dunklere Fassung
+   der Zustandsfarbe. */
+.race-btn.correct,
+.build-btn.correct,
+.shield-btn.correct,
+.opt-btn.correct,
+.btn-opt.correct,
+.arena-btn.correct,
+.btn-syntax.correct,
+.antwort-btn.richtig { background-color: var(--richtig); border-color: #24512c; color: #fff; }
+.race-btn.wrong,
+.build-btn.wrong,
+.shield-btn.wrong,
+.opt-btn.wrong,
+.btn-opt.wrong,
+.arena-btn.wrong,
+.btn-syntax.wrong,
+.antwort-btn.falsch  { background-color: var(--falsch);  border-color: #7d2020; color: #fff; }
 
 /* ---------- Hinweiskasten ---------- */
 
 /* Die Öllampe steht am Hinweiskasten für „hier wird etwas erklärt". Sie sitzt
    als Hintergrundbild oben rechts, damit sie den Text nicht verdrängt, und ist
    zurückgenommen - sie soll den Kasten kennzeichnen, nicht bespielen. */
+/* Der grosse Kasten, in dem ein Spiel sitzt - die Fläche, auf der bei den
+   meisten Spielen alles andere liegt.
+   Stand vorher in SIEBEN Dateien fast wortgleich (Arcus, CircusV, Kastell,
+   Pendel, Principia, Pronomina, Villa). Dieselbe Dopplung wie früher bei
+   .notice-box und mit derselben Folge: Eine Änderung am Aussehen hiesse sieben
+   Änderungen, und eine davon vergisst man.
+   Grösse und Innenabstand bleiben Sache des einzelnen Spiels - der Circus
+   braucht 980 px für seine Arena, Pronomina kommt mit 650 aus. */
+/* Ein grosses Stück Pergament statt einer beigen Fläche.
+   Schnittwerte an `pergament-bogen.png` (900x672) GEMESSEN, nicht geschätzt:
+   Die gerissene Kante samt eingerollter Ecke reicht oben 107, rechts 100,
+   unten 157 und links 114 Bildpixel weit herein. Bildpixel skalieren NICHT
+   mit - wird das Asset getauscht, muss neu gemessen werden.
+
+   Die Randbreiten stehen im selben Verhältnis (Faktor 0,38), damit keine
+   Seite stärker gestaucht wird als die andere. Sie kosten Platz nach innen,
+   deshalb nicht grösser - das Pergament soll Rahmen sein, nicht Inhalt.
+
+   Kein border-radius und kein Rand mehr: Ein Bogen mit gerissenen Rändern in
+   einem Bronzerechteck sähe aus wie ein Bild im Rahmen. Die gezeichnete Kante
+   IST der Rand. Der Schatten folgt jetzt der Kontur (drop-shadow statt
+   box-shadow), sonst läge ein Rechteck hinter einem unregelmässigen Bogen. */
+.game-container {
+    width: 100%;
+    /* Innenabstand und Mindesthöhe standen in sieben Dateien einzeln da -
+       20 gegen 25 px, 420 bis 500 px. Der Pergamentrand liefert den
+       sichtbaren Abstand längst; diese Polsterung hält den Inhalt nur von
+       der gerissenen Kante weg. Wer mehr braucht, überschreibt es. */
+    padding: 20px;
+    min-height: 480px;
+    border-style: solid;
+    /* Mitwachsend, nicht fest: Bei festen 41/38/60/43 px frass der Rand auf
+       einem 320-px-Schirm 42 % der Breite - der Inhalt schrumpfte auf 169 px.
+       Gemessen; die Verhaeltnisse untereinander bleiben gleich. */
+    border-width: clamp(18px, 5vw, 41px) clamp(17px, 4.6vw, 38px)
+                  clamp(26px, 7.3vw, 60px) clamp(19px, 5.2vw, 43px);
+    border-image: url('assets/ui/pergament-bogen.png') 107 100 157 114 fill stretch;
+    background: none;
+    filter: drop-shadow(0 6px 14px rgba(80, 60, 30, 0.28));
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Die Rückmeldung nach einer Antwort - „Richtig!" samt Erklärung.
+   Stand in fünf Spielen fast wortgleich (Arcus, Kastell, Pendel, Principia,
+   Pronomina); die Unterschiede waren 1,7 gegen 1,8 gegen 2,0 rem und 20 gegen
+   25 px Innenabstand. Genommen ist jeweils der Wert der Mehrheit.
+
+   Sie liegt im .game-container und deckt dessen Inhaltsfläche ab, nicht den
+   Pergamentrand: Ein absolut positioniertes Element bezieht sich auf die
+   Polsterbox des nächsten positionierten Vorfahren, und das ist hier die
+   Fläche INNERHALB des border-image. Genau richtig - der Bogen bleibt stehen,
+   nur sein Inhalt wird überdeckt.
+
+   Via Rōmāna hat bewusst etwas anderes: dort sitzt eine Karte im Overlay
+   statt einer vollflächigen Überdeckung. */
+/* Und dieselbe Schicht noch viermal unter anderem Namen: .start-overlay
+   (Bomba, Fliegenklatsche), .overlay (IssaJump), .overlay-screen (Villa),
+   .end-screen (Duell und Via Rōmāna). Sechs Namen, dieselbe Sache - eine fast
+   deckende Lage hellen Putzes über dem Spiel, Inhalt mittig in einer Spalte.
+
+   Zwei Unterschiede waren echt und bleiben:
+   - Wo es keinen positionierten .game-container gibt, über den sich die
+     Schicht legen könnte, ist sie fest verankert (fixed) und liegt über
+     allem, auch über der Kopfleiste. Das betrifft Bomba, die Fliegenklatsche
+     und die Endbildschirme von Duell und Via Rōmāna.
+   - Wer beim Laden schon sichtbar ist (Startbildschirm), wer nicht
+     (Rückmeldung, Endbildschirm). Das steht unten.
+   Der Rest war Zufall: 0,96 gegen 0,97 Deckung, 20 gegen 24 gegen 25 px
+   Innenabstand, und in Villa noch ein border-radius: 8px aus der Zeit vor
+   dem Pergament. Genommen ist der Wert der Mehrheit. */
+.feedback-overlay,
+.start-overlay,
+.overlay,
+.overlay-screen,
+.end-screen {
+    position: absolute;
+    inset: 0;
+    background: rgba(244, 236, 219, 0.97);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* Zwei Zeilen, und die zweite ist die wichtige: Ein mittig gesetzter
+       Flexkasten, dessen Inhalt hoeher ist als er selbst, schiebt den
+       Ueberhang nach OBEN aus dem Bild - und dorthin laesst sich nicht
+       scrollen. Gemessen in Bomba: Die Ueberschrift stand bei -23 px und war
+       nicht erreichbar. `safe` schaltet in dem Fall auf linksbuendig um.
+       Aeltere Browser verwerfen die zweite Zeile und behalten die erste. */
+    justify-content: center;
+    justify-content: safe center;
+    padding: 24px;
+    text-align: center;
+    overflow-y: auto;
+    z-index: 10;
+}
+
+/* Wenn die Schicht scrollen muss, dann unauffaellig: Der voreingestellte
+   Balken ist ein graues Brett quer ueber dem Pergament. Bronze auf nichts
+   passt zum Rest; wo die Kurzform noch nicht gilt (aeltere iPads), greift
+   die WebKit-Schreibweise darunter. */
+.feedback-overlay,
+.start-overlay,
+.overlay,
+.overlay-screen,
+.end-screen,
+.game-container { scrollbar-width: thin; scrollbar-color: var(--bronze) transparent; }
+.feedback-overlay::-webkit-scrollbar,
+.start-overlay::-webkit-scrollbar,
+.overlay::-webkit-scrollbar,
+.overlay-screen::-webkit-scrollbar,
+.end-screen::-webkit-scrollbar,
+.game-container::-webkit-scrollbar { width: 8px; }
+.feedback-overlay::-webkit-scrollbar-thumb,
+.start-overlay::-webkit-scrollbar-thumb,
+.overlay::-webkit-scrollbar-thumb,
+.overlay-screen::-webkit-scrollbar-thumb,
+.end-screen::-webkit-scrollbar-thumb,
+.game-container::-webkit-scrollbar-thumb { background: var(--bronze); border-radius: 4px; }
+
+/* Vollbild: kein Vorfahr, über den sich die Schicht legen könnte. */
+.start-overlay,
+.end-screen { position: fixed; z-index: 500; }
+
+/* Wer beim Laden unsichtbar ist. Das JavaScript schaltet ihn auf flex. */
+.feedback-overlay,
+.overlay-screen,
+.end-screen { display: none; }
+
+/* Die Überschrift auf der Schicht. Stand in Bomba, Fliegenklatsche und
+   IssaJump je einzeln da - 2 gegen 2 gegen 1,5 rem.
+   .feedback-title gehört NICHT dazu: Deren Farbe wechselt je nach Antwort
+   zwischen Grün und Rot, die setzt das Spiel. */
+.start-overlay h2,
+.overlay h2 {
+    font-family: var(--font-display);
+    color: var(--pompeji);             /* kontrast-ok: 6,40 auf --putz */
+    font-size: 2rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+}
+.feedback-title {
+    font-family: var(--font-display);
+    font-size: 1.8rem;
+    margin-bottom: 15px;
+}
+.feedback-explanation {
+    font-size: 1.1rem;
+    line-height: 1.55;
+    margin-bottom: 25px;
+    max-width: 500px;
+}
+.feedback-explanation strong { color: var(--pompeji); }
+
+/* ---------- Startbildschirm ----------
+   Der Block mit Erklärung und Startknopf, der beim Beginn der Runde
+   ausgeblendet wird. Stand in fünf Spielen Zeichen für Zeichen gleich
+   (Arcus, Kastell, Pendel, Principia, Pronomina). */
+.start-screen { text-align: center; padding: 10px; }
+
+/* ---------- Antwortgitter ----------
+   Zwei Spalten, darin die Antwortknöpfe. Stand in fünf Spielen (CircusV,
+   Kastell, Principia, Pronomina, Villa); die Unterschiede waren 12 gegen
+   14 px Abstand und ein fehlendes flex-grow im Circus.
+
+   flex-grow: 1 lässt das Gitter die Resthöhe der Spielfläche füllen, damit
+   die vier Knöpfe unten bündig stehen statt zu schweben. In einem Elternteil,
+   der kein Flexkasten ist, tut es nichts - deshalb schadet es dem Circus nicht. */
+.options-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    flex-grow: 1;
+}
+
 .notice-box {
     background: var(--putz) url('assets/ui/lampe.png') right 14px top 12px / 34px auto no-repeat;
     border: 2px solid var(--bronze);

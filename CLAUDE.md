@@ -9,6 +9,10 @@ Browserbasiert, kein Server/Backend, kein Login – reines HTML/CSS/JS, Fortschr
 > Engines und die Lektionsangaben in den Spieltexten. **Nicht** umgestellt sind das Kultur-Quiz
 > und die handkuratierten Sätze in `Pronomina.html` – beide tragen noch Pontes-Inhalte und sind
 > im Spiel entsprechend gekennzeichnet. Stand und offene Punkte: `UMBAU-CURSUS.md`.
+>
+> **Im Einsatz ab 29.09.2026 in einer 6. Klasse, Lektion 1.** Welche Spiele im Hauptmenü
+> offen stehen, steuert `KLASSENSTAND` in `index.html` – eine Zahl, hochsetzen, wenn die
+> Klasse weiterrückt.
 
 ## Grundprinzip
 
@@ -140,6 +144,35 @@ LektionsCheck.html, Genitiv.html (Compone!) – alle redundant zu neueren/reichh
   verbindlichen Nummern stehen im Abschnitt „Lehrgang: was wann drankommt“ weiter unten –
   dort nachschlagen, nicht schätzen. Beim Ergänzen einer neuen Fähigkeit gehört die Nummer
   als benannte Konstante in die Engine und in `test-gating.js`.
+
+## Abstand zur Pontes-Arena
+
+Diese Fassung ist am 18.09.2026 von `Latein_Plattform` abgezweigt (Stand `23a03c1`). Dort ist
+seitdem weitergebaut worden. **Übernommen** wurde am 28.09.2026, was die ersten Lektionen
+betrifft:
+
+- `IssaJump.html` samt `review.js` – Sprunghöhen (ein Sprung trägt genau eine Reihe),
+  Aufsetzen auf der richtigen Plattform nach einem Fehler, Scutum und Catapulta,
+  Wiederholungsrunde.
+- `progress.js` – `weightedPick` sperrt die zuletzt gezogenen Wörter. In Cursus-L1 gibt der
+  Topf 17 Wörter her; ohne die Sperre wiederholte sich das zuletzt gefragte sofort.
+- `Kastell.html` samt `VerbEngine.PERSON_LESSON` – die Personen sind gestaffelt (L1 nur
+  3. Sg., L2 dazu 3. Pl., ab L3 alle), und die Distraktoren folgen der Minimalpaar-Regel.
+  `startDefense()` lehnt L1/L2 ab, weil es dort keine vier Verbformen gibt.
+- `theme.css` – die zusammengelegte Fassung (zwei Knopfrollen, geteilte Bausteine). Sie ist
+  eine Obermenge der alten: geprüft, dass kein Selektor der alten Fassung fehlt.
+
+**Noch NICHT übernommen** – das ist kein Versehen, sondern der Stand:
+
+- Die **Richtungsangabe im Akkusativ** (`in`/`ad` + Akk.). Cursus führt die Adverbiale in L3
+  ein, die `SentenceEngine` dieser Fassung baut sie noch nicht. `test-engine.js` meldet das.
+  Fällig, bevor die Klasse L3 erreicht.
+- Die **Wiederholungsrunde in den übrigen Spielen** (Circus, Duell, Principia, Villa,
+  Pronomina, Arcus, Pendel, ViaRomana). `test-wiederholung.js` und `test-arcus.js`/
+  `test-principia.js` schlagen deshalb an – sie prüfen eine Fähigkeit, die hier fehlt.
+- Die **neuen Spiele** Bomba, Fliegenklatsche und Silentium.
+- Der **zweite Modus von Via Rōmāna** („Nur Ablativ – welche Funktion?"), der ohnehin erst
+  ab L7 greift.
 
 ## Lehrgang: was wann drankommt
 

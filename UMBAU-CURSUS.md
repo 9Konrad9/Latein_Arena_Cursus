@@ -64,6 +64,22 @@ elf Lektionsgrenzen, das Numerus-Gating, die Kasusreihenfolge und den Wortschatz
 dort nimmt jetzt `LATEIN_PROJ` entgegen; `smoke.js` und `test-aci.js` sind lehrbuchunabhängig
 gemacht (sie hatten Pontes-Wörter bzw. die Zahl 8 fest verdrahtet).
 
+## Nachtrag 28.09.2026 – vor dem ersten Einsatz
+
+Die Arena wird ab 29.09. in einer 6. Klasse in **Lektion 1** benutzt. Dafür:
+
+1. **Drei Korrekturen aus der Pontes-Arena übernommen** (Issa-Sprunghöhen und Aufsetzen nach
+   dem Fehler, Wiederholungssperre in der Wortauswahl, Personen-Staffelung samt Kastell-Sperre).
+   Was dabei mitkam und was bewusst nicht, steht in `CLAUDE.md` unter „Abstand zur Pontes-Arena".
+2. **`KLASSENSTAND` im Hauptmenü.** Die Zahl sagt, wo die Klasse steht; Spiele, die mehr
+   Grammatik brauchen, erscheinen ausgegraut. In Lektion 1 offen: Circus Maximus, Prīncipia,
+   Issa Springt, Gladiatoren-Duell, Kultur-Quiz. Gesperrt: Kastell, Via Rōmāna und Pendel
+   (bis L3, ohne Akkusativ gibt es nichts zu bestimmen), Villa (bis L6), Arcus (L9),
+   Pronomina (L15).
+3. **Zwei Tests lehrbuchunabhängig gemacht**: `test-auswahl.js` maß die Topfgröße gegen die
+   Pontes-Zahl, `test-kastell.js` prüfte die Diathese-Achse fest bei L15. Beide lesen die
+   Lektion jetzt aus der Engine.
+
 ## Offen
 
 1. **Die 35 neu angelegten Einträge fachlich gegenlesen.** `valenz`, `subjBelebt` und `belebt`

@@ -485,23 +485,43 @@
             }
         }
 
-        // Spiele, deren Grammatik im Cursus später kommt, als der Wortschatz reicht.
-        // Die Zahl ist die Lektion der Einführung; sobald der Wortschatz dort angekommen
-        // ist, öffnet sich die Kachel von selbst.
-        const FREI_AB = { arcus: 9, pronomina: 15 };
+        // ============================================================
+        // WAS SCHON DRAN IST
+        // ============================================================
+        // KLASSENSTAND ist die Lektion, in der die Klasse gerade steckt. Die einzige
+        // Zahl, die von Hand gepflegt wird: hochsetzen, wenn die Klasse weiterrückt,
+        // dann öffnen sich die Kacheln von selbst. Mehr ist dafür nicht zu tun.
+        const KLASSENSTAND = 1;
+
+        // Was ein Spiel mindestens braucht - Cursus-Lektion, hergeleitet aus dem
+        // Lehrgang (Tabelle in CLAUDE.md), nicht geschätzt:
+        //   kastell   3  Vier Antwortmöglichkeiten brauchen mehr als eine Verbform.
+        //                In L1 gibt es nur die 3. Sg., in L2 dazu die 3. Pl.
+        //   viaromana 3  Ohne Akkusativ gibt es nur "asinus exspectat" - nichts zu bestimmen.
+        //   pendel    3  Dasselbe: die Pendelmethode lebt vom Objekt.
+        //   villa     6  Die ersten Adjektive (a-/o-Deklination).
+        //   arcus     9  AcI.
+        //   pronomina 15 Possessiv- und reflexives Personalpronomen.
+        const FREI_AB = { kastell: 3, viaromana: 3, pendel: 3, villa: 6, arcus: 9, pronomina: 15 };
+
         const maxLektion = Math.max.apply(null, globalVocabularyPool.map(v => v.lesson));
+        const erreichbar = Math.min(KLASSENSTAND, maxLektion);
 
         document.querySelectorAll('.game-card[data-game]').forEach(card => {
             const gameId = card.getAttribute('data-game');
             const badge = card.querySelector('.progress-badge');
 
-            if (FREI_AB[gameId] > maxLektion) {
+            if (FREI_AB[gameId] > erreichbar) {
                 card.classList.add('gesperrt');
                 const btn = card.querySelector('.play-btn');
                 btn.classList.add('gesperrt');
                 btn.removeAttribute('href');
                 btn.innerText = 'Ab Lektion ' + FREI_AB[gameId];
-                badge.innerText = 'Der Wortschatz reicht bis Lektion ' + maxLektion;
+                // Zwei Gründe, und sie sind nicht dasselbe: Entweder ist die Klasse
+                // noch nicht so weit, oder der Wortschatz reicht noch nicht so weit.
+                badge.innerText = FREI_AB[gameId] > maxLektion
+                    ? 'Der Wortschatz reicht bis Lektion ' + maxLektion
+                    : 'Die Klasse ist bei Lektion ' + KLASSENSTAND;
                 return;
             }
 

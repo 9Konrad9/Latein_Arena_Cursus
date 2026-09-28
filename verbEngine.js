@@ -462,6 +462,31 @@ const VerbEngine = (() => {
     // ============================================================
 
     // Ab welcher Lektion der Imperativ grundsätzlich bekannt ist.
+    // ============================================================
+    // PERSONEN-STAFFELUNG
+    // ============================================================
+    // Die Personen kommen nicht auf einmal. Aus dem Cursus-Inhaltsverzeichnis:
+    //   L1  3. Person Singular (Präsens)
+    //   L2  3. Person Plural (Präsens)
+    //   L3  1. und 2. Person Singular und Plural
+    // Dieselbe Staffelung wie in Pontes - die Lektionszahlen stimmen hier zufällig
+    // überein, hergeleitet sind sie aus der Lehrgangstabelle in CLAUDE.md.
+    // getFormsForTempus() liefert weiterhin alle sechs Formen - die Engine soll
+    // rechnen, nicht auswählen. Wer abfragt, filtert mit getKnownPersonIndices().
+    //
+    // Ohne das bot das Formen-Kastell schon in Lektion 1 alle sechs Personen an,
+    // genau wie es auf der Nomenseite vorher alle fünf Kasus tat.
+    // Reihenfolge wie in getFormsForTempus: [1.Sg, 2.Sg, 3.Sg, 1.Pl, 2.Pl, 3.Pl]
+    const PERSON_LESSON = [3, 3, 1, 3, 3, 2];
+
+    function getKnownPersonIndices(maxSelectedLesson) {
+        const indices = [];
+        PERSON_LESSON.forEach(function (lektion, i) {
+            if (maxSelectedLesson >= lektion) indices.push(i);
+        });
+        return indices;
+    }
+
     const IMPERATIV_LESSON = 6;
 
     // Lexikalisierte Kurzformen (Sg.) bei sonst regulären konsonantischen/
@@ -899,6 +924,8 @@ const VerbEngine = (() => {
         isInfinitiveApplicable,
         isInfinitiveKnown,
         getInfinitive,
+        PERSON_LESSON,
+        getKnownPersonIndices,
         IMPERATIV_LESSON,
         INFINITIV_LESSON,
         isPPAApplicable,

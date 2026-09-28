@@ -6,6 +6,7 @@
     <title>Issa Springt! - Vokabel-Jump'n'Run</title>
     <script src="vocabulary.js"></script>
     <script src="progress.js"></script>
+    <script src="review.js"></script>
     <script src="lessonFilter.js"></script>
     <link rel="stylesheet" href="theme.css">
     <style>
@@ -15,15 +16,10 @@
             display: flex; flex-direction: column; align-items: center; overflow: hidden; overscroll-behavior: none;
             width: 100%;
         }
-        h1 {
-            color: var(--pompeji); font-family: var(--font-display); text-transform: uppercase;
-            font-size: 1.5rem; margin: 8px 0 2px; text-align: center; letter-spacing: 2px;
-            flex-shrink: 0;
-        }
-        .subtitle {
-            font-family: var(--font-display); font-style: italic; color: var(--ink-soft); margin-bottom: 8px;
-            text-align: center; font-size: 0.9rem; flex-shrink: 0;
-        }
+        /* Aussehen steht in theme.css. Hier nur kleiner und schrumpffest:
+           Die Kopfzeile teilt sich die Höhe mit dem Sprungfeld. */
+        .seiten-titel { font-size: 1.5rem; margin: 8px 0 2px; flex-shrink: 0; }
+        .seiten-untertitel { font-size: 0.9rem; margin-bottom: 8px; flex-shrink: 0; }
 
         /* Füllt den kompletten restlichen Platz im Flex-Layout - zuverlässiger als vh-Berechnungen,
            die auf Mobilgeräten je nach Adressleiste/Browser stark schwanken. */
@@ -32,6 +28,13 @@
             display: flex; align-items: center; justify-content: center;
             padding: 0 12px 12px;
         }
+        /* KEIN Pergament um dieses Spielfeld - anders als bei den anderen
+           Spielen. Der Bogen haelt dort Text; hier haelt er ein Bild, und dafuer
+           bringt er nichts ein, kostet aber Spielflaeche (gemessen 14 % Hoehe im
+           Querformat). Ausserdem hat der Rahmen die Steuerung eingesperrt: Sein
+           drop-shadow macht aus jedem "position: fixed" darin ein "absolute",
+           und die Tasten klebten wieder an der Buehne statt am Bildschirmrand.
+           Entscheidung des Fachlehrers nach dem Test. */
         .stage {
             position: relative;
             width: 400px;
@@ -42,24 +45,12 @@
         }
         canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; }
 
-        .overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            /* War rgba(10,15,25,0.94) - fast schwarz. Die Schrift darauf wurde beim
-               Theme-Wechsel auf dunkle Tinte umgestellt, also dunkel auf dunkel.
-               Jetzt heller Putz wie die Rückmeldungs-Overlays der anderen Spiele. */
-            background: rgba(244, 236, 219, 0.96); padding: 20px; text-align: center; z-index: 20;
-            overflow-y: auto;
-        }
-        .overlay h2 { font-family: var(--font-display); color: var(--pompeji); font-size: 1.5rem; margin-bottom: 12px; }
+        /* Aussehen steht in theme.css. Hier nur die kleinere Ueberschrift:
+           Die Schicht liegt im Spielfeld, nicht ueber dem ganzen Schirm. */
+        .overlay h2 { font-size: 1.5rem; margin-bottom: 12px; }
         .overlay p { color: var(--ink-soft); line-height: 1.5; margin-bottom: 10px; font-size: 0.95rem; }
         .overlay .example { color: var(--pompeji); font-weight: bold; }
-        .start-btn { padding: 13px 34px; border-radius: 26px; font-size: 1.1rem; margin-top: 10px; }
-        .small-btn {
-            background: var(--putz-hell); color: var(--ink-soft); font-family: var(--font-body); font-weight: bold;
-            padding: 9px 20px; border: none; border-radius: 20px; font-size: 0.85rem; cursor: pointer; margin-top: 10px;
-            text-decoration: none; display: inline-block;
-        }
+        .start-btn:not(.zweitrangig) { padding: 13px 34px; font-size: 1.1rem; margin-top: 10px; }
 
         /* HUD */
         .hud {
@@ -125,9 +116,9 @@
 <body>
 <a href="index.html" id="global-menu-btn" onclick="return confirm('Zurück zum Hauptmenü? Der aktuelle Fortschritt in dieser Runde geht verloren.');" title="Zurück zum Hauptmenü">🏠</a>
 
-    <h1>🐕 Issa Springt!</h1>
+    <h1 class="seiten-titel">🐕 Issa Springt!</h1>
     <div id="error-banner" style="display:none; background: var(--falsch); color:#fff; padding:8px 14px; font-size:0.85rem; text-align:center; max-width:90%; border-radius:6px; margin-bottom:6px;"></div>
-    <div class="subtitle">Vokabel-Jump'n'Run</div>
+    <div class="seiten-untertitel">Vokabel-Jump'n'Run</div>
 
     <div class="stage-wrapper">
     <div class="stage" id="stage">
@@ -161,9 +152,11 @@
         <div class="overlay" id="end-overlay" style="display:none;">
             <h2 id="end-title">Issa ist gefallen!</h2>
             <p id="end-stats"></p>
+            <button class="start-btn wiederholen" style="display:none;" id="btn-review">📚 Fehler wiederholen</button>
+            <br>
             <button class="start-btn" id="btn-restart">Nochmal springen</button>
             <br>
-            <a href="index.html" class="small-btn">Zurück zum Menü</a>
+            <a href="index.html" class="start-btn zweitrangig" style="margin-top: 10px;">Zurück zum Menü</a>
         </div>
     </div>
     </div>
@@ -197,7 +190,53 @@
         const ISSA_W = 34, ISSA_H = 30;
         const NEUTRAL_W = 66;
         const ANSWER_W = 88;
-        const ROW_GAP_MIN = 95, ROW_GAP_MAX = 130;
+        /* EINE Plattform je Sprung, eindeutig.
+           Issa steigt gemessen 207 px (diskret gerechnet; die Schulformel sagt
+           202,5). Vorher lagen die Abstaende bei 95-130: Eine Reihe schaffte ein
+           Sprung immer, ZWEI Reihen (190 bis 260) mal so, mal so. Genau das war
+           der Grund, warum sich eine Plattform scheinbar ueberspringen liess und
+           es dann doch nicht reichte - und woran man nichts besser machen kann,
+           weil es vom Wuerfel abhing.
+           Jetzt: eine Reihe hoechstens 145 (62 px Luft nach oben), zwei Reihen
+           mindestens 250 (43 px zu wenig). Beides deutlich genug, um es zu
+           sehen, statt es zu probieren. */
+        const ROW_GAP_MIN = 125, ROW_GAP_MAX = 145;
+
+        /* ---------- Gegenstaende ----------
+           Zwei Stueck, beide roemisch und beide mit einem Grund:
+
+           SCUTUM (Schild)  Zehn Sekunden lang kostet eine falsche Antwort kein
+                            Herz. Er schuetzt das SPIEL, nicht das Lernen: Was
+                            falsch war, geht trotzdem als falsch in den
+                            Vokabelkasten - sonst koennte man sich Fortschritt
+                            erkaufen.
+           CATAPULTA        Schleudert Issa ueber DREI Reihen und damit ueber
+                            ein Antwort-Feld hinweg: eine Frage faellt aus.
+                            Genau das ist die Belohnung - Entscheidung des
+                            Fachlehrers, dem Lerneffekt schadet eine
+                            uebersprungene Frage nicht.
+
+                            Zwei Anlaeufe davor waren falsch, beide aus
+                            demselben Grund zu zaghaft: Erst warf der Katapult
+                            genau AUF das Antwort-Feld (man kam an, ohne
+                            geschaut zu haben, wohin, und verlor ein Herz), dann
+                            auf die neutrale Reihe direkt darunter - sauber,
+                            aber ohne Gewinn, weil die dafuer eingeschobene
+                            Reihe genau das kostete, was der Wurf sparte.
+
+                            469 px sind nicht frei gewaehlt: Drei Reihen sind
+                            hoechstens 435 auseinander, vier mindestens 500. Der
+                            Wurf endet also immer auf einer neutralen Reihe, nie
+                            auf einem Antwort-Feld - man kommt an, schaut hoch
+                            und springt selbst. */
+        const ITEM_W = 30, ITEM_H = 30;
+        const SCHILD_FRAMES = 600;      // rund zehn Sekunden bei 60 Bildern je Sekunde
+        const KATAPULT_V = -13.6;       // gemessen 469 px Steighoehe
+        /* Halbiert nach dem ersten Klassentest - vorher 0,16 und 0,22, also
+           rund alle acht Reihen ein Gegenstand. Das war zu viel: Was staendig
+           kommt, ist kein Fund mehr. Jetzt rund alle siebzehn Reihen. */
+        const CHANCE_SCHILD = 0.08;
+        const CHANCE_KATAPULT = 0.11;
         const START_LIVES = 3;
         const INVULN_FRAMES = 70;
 
@@ -212,12 +251,21 @@
             const availH = Math.max(100, wrapper.clientHeight - 12);
             const ratio = 400 / 650;
 
-            let w = Math.min(availW, 500);
-            let h = w / ratio;
-            if (h > availH) { h = availH; w = h * ratio; }
+            /* Der Pergamentrand liegt INNERHALB der Kastenmasse (box-sizing:
+               border-box) und waechst mit dem Schirm mit. Wird er nicht
+               herausgerechnet, bekommt die Zeichenflaeche ein anderes
+               Seitenverhaeltnis als die 400:650, mit denen das Spiel rechnet -
+               die Sprites waeren verzerrt. */
+            const stil = getComputedStyle(stage);
+            const randX = parseFloat(stil.borderLeftWidth) + parseFloat(stil.borderRightWidth);
+            const randY = parseFloat(stil.borderTopWidth) + parseFloat(stil.borderBottomWidth);
 
-            stage.style.width = Math.round(w) + 'px';
-            stage.style.height = Math.round(h) + 'px';
+            let w = Math.min(availW - randX, 500);
+            let h = w / ratio;
+            if (h > availH - randY) { h = Math.max(100, availH - randY); w = h * ratio; }
+
+            stage.style.width = Math.round(w + randX) + 'px';
+            stage.style.height = Math.round(h + randY) + 'px';
         }
         window.addEventListener('resize', resizeStage);
         window.addEventListener('orientationchange', () => setTimeout(resizeStage, 100));
@@ -265,6 +313,26 @@
 
         /* ============ SPIELZUSTAND ============ */
         let issa, platforms, score, lives, invulnFrames, keys, running, correctCount, wrongCount, touchDir, currentHudLatin, startledFrames;
+        let items = [];             // Schilde und Katapulte, die auf Plattformen liegen
+        let schildFrames = 0;       // wie lange das Scutum noch haelt
+
+        /* Die feste zweite Runde: ein kurzer Kletterlauf nur mit den Woertern,
+           die danebengegangen sind - EIN Durchgang, nicht so lange, bis es
+           sitzt. Sie zaehlt NICHT in den Vokabelkasten (Entscheidung des
+           Fachlehrers); die Achievement-Zaehler gibt es hier ohnehin nicht.
+
+           Zwei Dinge sind in der Wiederholung anders als im Lauf:
+           - Kein Herzverlust. Wer die Woerter nochmal sehen soll, soll sie auch
+             alle sehen; mit drei Herzen waere bei acht Fehlern vorher Schluss.
+             Der Sturz nach unten faengt Issa weiterhin auf, nur ohne Abzug.
+           - Der Lauf endet, wenn die Liste durch ist, nicht wenn Issa faellt. */
+        const wdh = LudiReview.neu();   // Buchfuehrung in review.js
+        /* Issa hat ZWEI Zeiger, deshalb reichen die des Moduls hier nicht:
+           Die Plattformen fuer die naechsten Woerter wachsen schon nach, waehrend
+           Issa noch bei den unteren steht. reviewSpawnIdx sagt, wie weit der Bau
+           ist, reviewAnswered, wie weit das Spiel ist. */
+        let reviewSpawnIdx = 0;
+        let reviewAnswered = 0;
 
         /* Jede Antwort-Reihe bekommt eine Nummer. Daran erkennt die Anzeige, welche
            Reihe schon beantwortet ist - sie soll das Wort der nächsten OFFENEN
@@ -277,6 +345,8 @@
         function resetGame() {
             issa = { x: CW / 2 - ISSA_W / 2, y: CH - 120, vx: 0, vy: BOUNCE_VELOCITY, facing: 1, animT: 0 };
             platforms = [];
+            items = [];
+            schildFrames = 0;
             score = 0;
             lives = START_LIVES;
             invulnFrames = 0;
@@ -293,9 +363,14 @@
 
             platforms.push({ x: CW / 2 - NEUTRAL_W / 2, y: CH - 80, w: NEUTRAL_W, type: 'neutral' });
 
-            nextSpawnY = CH - 180;
+            /* Die erste gebaute Reihe haelt denselben Abstand wie alle anderen.
+               Vorher stand hier fest CH - 180, also 100 px ueber der Startplattform -
+               und das war ausgerechnet der eine Abstand im Spiel, bei dem sich zwei
+               Reihen mit einem Sprung schaffen liessen (2 x 100 < 207).
+               Gefunden vom Test, nicht beim Lesen. */
+            nextSpawnY = (CH - 80) - ROW_GAP_MIN;
             spawnCycle = 0;
-            while (nextSpawnY > -CH) { nextSpawnY = spawnRow(nextSpawnY, spawnCycle); spawnCycle++; }
+            while (nextSpawnY > -CH) baueNaechsteReihe();
 
             updateHudWord();
             updateHud();
@@ -308,9 +383,18 @@
             if (cycle % 3 === 2) {
                 // weightedPick gibt bei leerem Pool null zurück - dann lieber irgendein
                 // Wort als ein Absturz mitten im Lauf.
-                const target = LudiProgress.weightedPick(activePool)
-                            || activePool[Math.floor(Math.random() * activePool.length)];
-                if (!target) return y - gap;
+                // In der Wiederholung kommt nicht der Vokabelkasten zu Wort,
+                // sondern die Fehlerliste - der Reihe nach. Ist sie abgespult,
+                // waechst nur noch neutraler Boden nach, bis der Lauf endet.
+                const target = LudiReview.laeuft(wdh)
+                    ? LudiReview.liste(wdh)[reviewSpawnIdx++]
+                    : (LudiProgress.weightedPick(activePool)
+                       || activePool[Math.floor(Math.random() * activePool.length)]);
+                if (!target) {
+                    const px = 20 + Math.random() * (CW - NEUTRAL_W - 40);
+                    platforms.push({ x: px, y: y, w: NEUTRAL_W, type: 'neutral' });
+                    return y - gap;
+                }
                 const { correct, options } = buildAnswerSet(target);
                 const slotW = CW / 4;
                 const reihe = ++reiheZaehler;
@@ -319,14 +403,45 @@
                     platforms.push({
                         x: Math.max(4, Math.min(CW - ANSWER_W - 4, px)), y: y, w: ANSWER_W, type: 'answer',
                         text: options[i], isCorrect: options[i] === correct, targetLatin: target.latin,
-                        reiheId: reihe
+                        targetEntry: target, reiheId: reihe
                     });
                 }
             } else {
                 const px = 20 + Math.random() * (CW - NEUTRAL_W - 40);
-                platforms.push({ x: px, y: y, w: NEUTRAL_W, type: 'neutral' });
+                const plattform = { x: px, y: y, w: NEUTRAL_W, type: 'neutral' };
+                platforms.push(plattform);
+                // cycle % 3 === 2 ist das Antwort-Feld. Die Reihe mit Rest 0 liegt
+                // also zwei darunter - genau die Wurfweite des Katapults.
+                // cycle % 3 === 2 ist das Antwort-Feld. Von der Reihe mit Rest 0
+                // aus traegt der Wurf ueber drei Reihen - also ueber das
+                // Antwort-Feld hinweg auf die naechste neutrale Reihe.
+                if (cycle % 3 === 0 && Math.random() < CHANCE_KATAPULT) setzeItem('katapult', plattform);
+                else if (cycle % 3 === 1 && Math.random() < CHANCE_SCHILD) setzeItem('scutum', plattform);
             }
             return y - gap;
+        }
+
+        /* Der Gegenstand sitzt mittig auf der Plattform und wird beim Beruehren
+           eingesammelt - von oben wie von unten. */
+        function setzeItem(art, plattform) {
+            items.push({
+                art: art,
+                x: plattform.x + plattform.w / 2 - ITEM_W / 2,
+                y: plattform.y - ITEM_H - 2,
+                w: ITEM_W, h: ITEM_H
+            });
+        }
+
+        function sammleItems() {
+            for (let i = items.length - 1; i >= 0; i--) {
+                const it = items[i];
+                if (issa.x + ISSA_W < it.x || issa.x > it.x + it.w ||
+                    issa.y + ISSA_H < it.y || issa.y > it.y + it.h) continue;
+                items.splice(i, 1);
+                if (it.art === 'scutum') schildFrames = SCHILD_FRAMES;
+                else { issa.vy = KATAPULT_V; startledFrames = 0; }
+                updateHud();
+            }
         }
 
         // Sucht das nächste noch nicht erreichte Antwort-Cluster (höchstes y-, also am wenigsten weit oben, das noch über Issa liegt) und zeigt dessen Wort in der HUD.
@@ -347,7 +462,15 @@
            als Filter dazu, damit eine übersprungene Reihe die Anzeige nicht
            festhält: Reihen, die mehr als eine Sprunghöhe unter Issa liegen,
            zählen nicht mehr. */
-        const SPRUNGHOEHE = 210;   // (BOUNCE_VELOCITY^2) / (2 * GRAVITY), aufgerundet
+        /* Aus der Physik abgeleitet, nicht hingeschrieben: Die Schulformel
+           (BOUNCE_VELOCITY^2)/(2*GRAVITY) sagt 202,5 - gerechnet wird aber in
+           ganzen Frames, und das ergibt 207. Wer an der Sprungkraft dreht, soll
+           diese Zahl nicht von Hand nachziehen muessen. */
+        const SPRUNGHOEHE = (function () {
+            let v = BOUNCE_VELOCITY, y = 0, hoch = 0;
+            while (v < 0) { y += v; v += GRAVITY; if (y < hoch) hoch = y; }
+            return Math.round(-hoch);
+        })();
 
         function updateHudWord() {
             if (hudHalten > 0) { hudHalten--; return; }
@@ -381,6 +504,18 @@
                 img.style.verticalAlign = 'middle';
                 heartsEl.appendChild(img);
             }
+            /* Das Scutum steht neben den Herzen, solange es haelt - mit der
+               Restzeit, damit man den Sprung noch wagt oder eben nicht. */
+            if (schildFrames > 0) {
+                const sek = Math.ceil(schildFrames / 60);
+                const marke = document.createElement('span');
+                marke.innerText = '\u{1F6E1} ' + sek + 's';
+                marke.style.marginLeft = '8px';
+                marke.style.fontWeight = 'bold';
+                marke.style.color = 'var(--pompeji)';
+                marke.style.verticalAlign = 'middle';
+                heartsEl.appendChild(marke);
+            }
             document.getElementById('hud-score').innerText = `Höhe: ${score} m`;
         }
 
@@ -389,10 +524,19 @@
 
         function maintainPlatforms() {
             platforms = platforms.filter(p => p.y < cameraY + CH + 150);
-            while (nextSpawnY > cameraY - 100) {
-                nextSpawnY = spawnRow(nextSpawnY, spawnCycle);
-                spawnCycle++;
-            }
+            items = items.filter(it => it.y < cameraY + CH + 150);
+            while (nextSpawnY > cameraY - 100) baueNaechsteReihe();
+        }
+
+        /* Die EINE Stelle, an der Reihen entstehen. Vorher baute resetGame die
+           ersten Reihen mit einer eigenen Schleife - und bekam die Zusatzreihe
+           hinter einem Katapult nicht mit. Gefunden vom Test. */
+        /* Die eine Stelle, an der Reihen entstehen. resetGame() hatte dafuer
+           frueher eine eigene Schleife - und bekam dadurch nicht mit, was
+           spawnRow() sonst noch anstellt. */
+        function baueNaechsteReihe() {
+            nextSpawnY = spawnRow(nextSpawnY, spawnCycle);
+            spawnCycle++;
         }
 
         /* ============ PHYSIK & KOLLISION ============ */
@@ -418,6 +562,9 @@
 
             if (invulnFrames > 0) invulnFrames--;
             if (startledFrames > 0) startledFrames--;
+            if (schildFrames > 0) { schildFrames--; if (schildFrames === 0) updateHud(); }
+
+            sammleItems();
 
             if (issa.vy > 0) {
                 for (const p of platforms) {
@@ -443,8 +590,23 @@
         }
 
         function handlePlatformLanding(p) {
+            /* Alles, was jetzt UNTER Issa liegt, ist durch - und zwar BEVOR die
+               neutrale Plattform abkuerzt. Der Katapult wirft sie auf eine
+               neutrale Reihe, und ohne diese Zeile bliebe das ueberflogene
+               Antwort-Feld "offen": Die Anzeige zeigte weiter dessen Wort,
+               obwohl es nicht mehr zu erreichen ist. Gezaehlt wird dafuer
+               nichts - eine uebersprungene Frage ist weder richtig noch falsch. */
+            platforms.forEach(q => {
+                if (q.type === 'answer' && q.y > p.y + 10) beantworteteReihen.add(q.reiheId);
+            });
+
             if (p.type === 'neutral') { issa.vy = BOUNCE_VELOCITY; return; }
             if (invulnFrames > 0) { issa.vy = BOUNCE_VELOCITY; return; }
+            /* Eine Reihe wird genau einmal beantwortet. Ohne diese Sperre zaehlte
+               ein zweites Aufsetzen auf derselben Reihe als zweite Antwort - und
+               genau das passierte reihenweise, weil Issa nach einem Fehler von
+               dort weiterfiel, wo sie stand. */
+            if (beantworteteReihen.has(p.reiheId)) { issa.vy = BOUNCE_VELOCITY; return; }
 
             // Diese Reihe ist beantwortet. Das Wort bleibt noch kurz stehen,
             // damit man sieht, worauf man gesprungen ist.
@@ -453,14 +615,55 @@
             if (p.isCorrect) {
                 issa.vy = BOUNCE_VELOCITY;
                 correctCount++;
-                LudiProgress.recordVocabAttempt(p.targetLatin, true);
+                if (LudiReview.laeuft(wdh)) LudiReview.treffer(wdh);
+                // Die Wiederholungsrunde zaehlt nicht in den Vokabelkasten.
+                if (!LudiReview.laeuft(wdh)) LudiProgress.recordVocabAttempt(p.targetLatin, true);
                 flashFeedback(true);
             } else {
-                LudiProgress.recordVocabAttempt(p.targetLatin, false);
+                if (!LudiReview.laeuft(wdh)) {
+                    LudiProgress.recordVocabAttempt(p.targetLatin, false);
+                    if (p.targetEntry) LudiReview.merken(wdh, p.targetEntry);
+                }
                 wrongCount++;
                 flashFeedback(false);
-                loseLife();
+                startledFrames = 30;
+
+                /* Neu ansetzen auf der RICHTIGEN Plattform derselben Reihe.
+                   Vorher fiel Issa von der falschen Plattform aus weiter und
+                   landete haeufig gleich noch einmal daneben - und sie bekam
+                   nie zu sehen, welche die richtige gewesen waere. Jetzt steht
+                   sie darauf. */
+                const richtige = platforms.find(q => q.reiheId === p.reiheId && q.isCorrect);
+                if (richtige) {
+                    issa.x = richtige.x + richtige.w / 2 - ISSA_W / 2;
+                    issa.y = richtige.y - ISSA_H;
+                    issa.vx = 0;
+                }
+                issa.vy = BOUNCE_VELOCITY;
+                invulnFrames = INVULN_FRAMES;
+
+                if (!herzVerlieren()) return;
             }
+
+            if (LudiReview.laeuft(wdh)) {
+                reviewAnswered++;
+                if (reviewAnswered >= LudiReview.offen(wdh)) endReview();
+            }
+        }
+
+        /* Ein Herz weg - oder eben nicht. Gibt false zurueck, wenn der Lauf damit
+           zu Ende ist.
+           Zwei Faelle kosten nichts: die Wiederholungsrunde (dort soll die Liste
+           durchgespielt werden) und ein getragenes Scutum. Der Schild schuetzt
+           aber nur das Spiel: Was falsch war, ist oben schon als falsch in den
+           Vokabelkasten gegangen. Sonst liesse sich Fortschritt einsammeln. */
+        function herzVerlieren() {
+            if (LudiReview.laeuft(wdh)) return true;
+            if (schildFrames > 0) return true;
+            lives--;
+            updateHud();
+            if (lives <= 0) { endGame(); return false; }
+            return true;
         }
 
         function flashFeedback(correct) {
@@ -469,11 +672,15 @@
             setTimeout(() => el.classList.remove('show-correct', 'show-wrong'), 220);
         }
 
+        /* Der Sturz aus dem Bild. Das Scutum hilft hier NICHT - es deckt
+           falsche Antworten, nicht fehlende Plattformen. */
         function loseLife() {
-            lives--;
-            updateHud();
             startledFrames = 30;
-            if (lives <= 0) { endGame(); return; }
+            if (!LudiReview.laeuft(wdh)) {
+                lives--;
+                updateHud();
+                if (lives <= 0) { endGame(); return; }
+            }
 
             const safeY = cameraY + CH - 90;
             issa.x = CW / 2 - ISSA_W / 2;
@@ -537,6 +744,41 @@
             return 'idle';
         }
 
+        /* Die beiden Gegenstaende sind gezeichnet, nicht gemalt: ein rundes
+           Scutum mit Buckel und Goldrand, und ein Onager - der roemische
+           Wurfarm auf einem Holzgestell. Wenn dafuer einmal Bilder da sind,
+           kommen sie hier an dieselbe Stelle wie bei den Plattformen. */
+        function drawItem(it) {
+            const mx = it.x + it.w / 2, my = it.y + it.h / 2;
+            // Sanftes Schweben, damit sie sich vom Untergrund abheben
+            const schweb = Math.sin((Date.now() / 300) + it.x) * 2;
+            ctx.save();
+            ctx.translate(mx, my + schweb);
+
+            if (it.art === 'scutum') {
+                ctx.fillStyle = '#9b2c2c';
+                ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = '#b8912f'; ctx.lineWidth = 2.5;
+                ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI * 2); ctx.stroke();
+                ctx.strokeStyle = '#f0e6d2'; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(9, 0); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(0, 9); ctx.stroke();
+                ctx.fillStyle = '#b8912f';
+                ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
+            } else {
+                ctx.fillStyle = '#7a5230';
+                ctx.fillRect(-13, 4, 26, 5);                 // Gestell
+                ctx.fillRect(-10, -1, 4, 8); ctx.fillRect(6, -1, 4, 8);
+                ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 3.5;
+                ctx.beginPath(); ctx.moveTo(-6, 4); ctx.lineTo(7, -11); ctx.stroke();   // Wurfarm
+                ctx.fillStyle = '#8c7853';
+                ctx.beginPath(); ctx.arc(8, -12, 4.5, 0, Math.PI * 2); ctx.fill();      // Stein
+                ctx.strokeStyle = '#b8912f'; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.moveTo(-12, 1); ctx.lineTo(-5, 3); ctx.stroke();   // Spannseil
+            }
+            ctx.restore();
+        }
+
         function drawIssa() {
             const pose = getIssaPose();
             const key = pose; // 'idle' | 'jump' | 'falling' | 'startled'
@@ -580,6 +822,7 @@
             }
 
             platforms.forEach(p => drawPlatform(p));
+            items.forEach(it => drawItem(it));
             drawIssa();
             ctx.restore();
         }
@@ -625,6 +868,8 @@
         }
 
         function beginRun() {
+            LudiReview.zuruecksetzen(wdh);
+            document.getElementById('btn-review').style.display = 'none';
             document.getElementById('start-overlay').style.display = 'none';
             document.getElementById('end-overlay').style.display = 'none';
             document.getElementById('hud').style.display = 'flex';
@@ -645,12 +890,49 @@
 
             document.getElementById('end-stats').innerHTML =
                 `Erreichte Höhe: <strong>${score} m</strong><br>Vokabeln richtig: <strong>${correctCount} von ${correctCount + wrongCount}</strong>`;
+
+            const reviewBtn = document.getElementById('btn-review');
+            reviewBtn.style.display = LudiReview.anzahl(wdh) ? 'inline-block' : 'none';
+            if (LudiReview.anzahl(wdh)) reviewBtn.innerText =
+                `📚 ${LudiReview.anzahl(wdh)} ${LudiReview.anzahl(wdh) === 1 ? 'Wort' : 'Wörter'} wiederholen`;
+
+            document.getElementById('end-overlay').style.display = 'flex';
+        }
+
+        /* Feste zweite Runde: ein kurzer Kletterlauf nur mit den Fehlern. */
+        function startReview() {
+            LudiReview.start(wdh);
+            reviewSpawnIdx = 0;
+            reviewAnswered = 0;
+
+            document.getElementById('end-overlay').style.display = 'none';
+            document.getElementById('hud').style.display = 'flex';
+            document.getElementById('touch-controls').style.display = 'flex';
+            document.getElementById('end-title').innerText = 'Issa ist gefallen!';
+            cameraY = 0; spawnCycle = 0; nextSpawnY = 0;
+            resetGame();
+            if (animFrameId) cancelAnimationFrame(animFrameId);
+            gameLoop();
+        }
+
+        function endReview() {
+            const bilanz = LudiReview.beenden(wdh);
+            running = false;
+            if (animFrameId) cancelAnimationFrame(animFrameId);
+            document.getElementById('hud').style.display = 'none';
+            document.getElementById('touch-controls').style.display = 'none';
+
+            document.getElementById('btn-review').style.display = 'none';
+            document.getElementById('end-title').innerText = '📚 Wiederholung geschafft!';
+            document.getElementById('end-stats').innerHTML =
+                `Du hast alle <strong>${bilanz.gesamt}</strong> zuvor verfehlten Wörter nochmal gesehen und dabei <strong>${bilanz.richtig}</strong> davon jetzt getroffen.<br>Was wieder daneben ging, bleibt in deinem Vokabelkasten auf Rot.`;
             document.getElementById('end-overlay').style.display = 'flex';
         }
 
         window.onload = function() {
             document.getElementById('btn-start').addEventListener('click', promptLessonsAndStart);
             document.getElementById('btn-restart').addEventListener('click', promptLessonsAndStart);
+            document.getElementById('btn-review').addEventListener('click', startReview);
             setupTouchControls();
             loadAssets(() => { /* Assets laufen im Hintergrund; das Spiel selbst startet erst nach Klick */ });
             resizeStage();
