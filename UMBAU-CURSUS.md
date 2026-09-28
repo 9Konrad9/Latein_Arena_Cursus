@@ -76,7 +76,9 @@ Die Arena wird ab 29.09. in einer 6. Klasse in **Lektion 1** benutzt. Dafür:
    Issa Springt, Gladiatoren-Duell, Kultur-Quiz. Gesperrt: Kastell, Via Rōmāna und Pendel
    (bis L3, ohne Akkusativ gibt es nichts zu bestimmen), Villa (bis L6), Arcus (L9),
    Pronomina (L15).
-3. **Zwei Tests lehrbuchunabhängig gemacht**: `test-auswahl.js` maß die Topfgröße gegen die
+3. **Silentium übernommen** – lehrbuchneutral, deshalb ohne Anpassung. Die Kacheln im
+   Hauptmenü bleiben davon unberührt; es hängt als Pille oben rechts.
+4. **Zwei Tests lehrbuchunabhängig gemacht**: `test-auswahl.js` maß die Topfgröße gegen die
    Pontes-Zahl, `test-kastell.js` prüfte die Diathese-Achse fest bei L15. Beide lesen die
    Lektion jetzt aus der Engine.
 

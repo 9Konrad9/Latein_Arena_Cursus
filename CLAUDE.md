@@ -161,6 +161,10 @@ betrifft:
   `startDefense()` lehnt L1/L2 ab, weil es dort keine vier Verbformen gibt.
 - `theme.css` – die zusammengelegte Fassung (zwei Knopfrollen, geteilte Bausteine). Sie ist
   eine Obermenge der alten: geprüft, dass kein Selektor der alten Fassung fehlt.
+- `Silentium.html` samt `assets/silentium/` – das Werkzeug für die Lehrkraft, unverändert
+  übernommen. Es liest keinen Wortschatz und kennt keine Lektionszahlen, am Lehrbuch hängt
+  daran nichts. Es steht als Pille oben rechts im Hauptmenü, nicht als Karte zwischen den
+  Spielen. `test-silentium.js` läuft gegen diese Fassung durch.
 
 **Noch NICHT übernommen** – das ist kein Versehen, sondern der Stand:
 
@@ -170,7 +174,7 @@ betrifft:
 - Die **Wiederholungsrunde in den übrigen Spielen** (Circus, Duell, Principia, Villa,
   Pronomina, Arcus, Pendel, ViaRomana). `test-wiederholung.js` und `test-arcus.js`/
   `test-principia.js` schlagen deshalb an – sie prüfen eine Fähigkeit, die hier fehlt.
-- Die **neuen Spiele** Bomba, Fliegenklatsche und Silentium.
+- Die **neuen Spiele** Bomba und Fliegenklatsche.
 - Der **zweite Modus von Via Rōmāna** („Nur Ablativ – welche Funktion?"), der ohnehin erst
   ab L7 greift.
 
